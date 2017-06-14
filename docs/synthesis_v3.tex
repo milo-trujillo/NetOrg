@@ -1,0 +1,240 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{xcolor}
+\newcommand{\jg}[1] {{\color{purple}{\bf{JG COMMENT: #1}}}}
+\begin{document}
+\title{Organization Structure with Information Synthesis}
+\maketitle
+
+% This document serves three purposes:
+% \begin{enumerate}
+% \item To provide a general and formal specification of our model.  
+% \item To show how our model is a generalization of Calvó‐Armengol,
+%   Antoni, Joan Martí, and Andrea Prat. "Communication and influence."
+%   Theoretical Economics 10.2 (2015): 649-690. 
+% \item To translate the purely mathematical specification to a neural
+%   network that can be trained to solve to model
+% \end{enumerate}
+% However, to make things clearer, I will start with the review of the
+% Communication and Influence (CI) model and then develop our synthesis
+% model and then compare the two.  To make things clear and precise, I
+% will avoid the terms ``node'', ``edge'' and any other graph-theoretic
+% concept until they are precisely defined.  
+
+% \section{CI Model}
+% I simplify their model to ease up on notation.  See the exact paper
+% for the full specification.  There are $n$ agents.  Each agent
+% receives an independent signal 
+% $\theta_i ~ \mathcal{N}(0, \sigma)$.  Each agent $i$ communicates with
+% each other agent $j \neq i$.  The signal agent $j$ receives from agent
+% $i$ is given by 
+% \begin{equation}
+% y_{ij} = \theta_i + \epsilon_{ij}, + \eta_{ij}
+% \end{equation}
+% where
+% \begin{align}
+% \epsilon_{ij} ~ \mathcal{N}(0, 1/r_{ij}) \nonumber \\
+% \eta_{ij} ~ \mathcal{N}(0, 1/p_{ij}) \nonumber \\
+% \end{align}
+% The interpretation is that $\epsilon{ij}$ is the ``noise associated
+% with active communication (preparing a presentation, writing a report,
+% hosting a visit, etc)'' and $\eta_{ij}$ is the noise associated with
+% passive communication (listening to a presentation, reading a report,
+% visiting a plant, etc).''  
+
+% After receiving a signal, agents choose action $a_i$ in $(-\infty,
+% \infty)$.  Agent $i$'s utility is given by:
+% \begin{equation}
+% u_i = -((a_i - \theta_i)^2  + \sum_{j \neq i}(a_i -a_j)^2
+% \end{equation}
+% Intuitively, agent $i$ wants to be close to the environment signal it
+% received and also be close to other agent's actions, which also want
+% to be close to the signal they receive.  The welfare function is just
+% then $\sum_iu_i$.  Note that that the welfare function is just a
+% function over the joint state of the environment (the $\theta$ terms)
+% and the ``states'' of the agents (the $a$ terms).  
+
+% However, the $r_{ij}$ and $p_{ij}$ terms are set endogenously.  That
+% is, agents invest in reducing the noise in their message as well as
+% the noise in the messages they receive.  These reductions are costly
+% and the utility function (and associated) social welfare function are
+% expanded to include these costs.  
+
+% Without talking about how they solve the model (which is relatively
+% unimportant to us at this point), let's tease out some of the main
+% elements of the model.
+
+% \begin{enumerate}
+% \item All to all communication
+% \item All agents' state contribute to the social welfare function
+% \item No information synthesis
+% \item Agent's main choice variable is to set the signal-to-noise ratio
+%   in their communication
+% \end{enumerate}
+
+% It is the last element that I want to focus on.  In this model, the
+% agents do not choose their message but instead simply choose how to
+% reduce the noise.  In the specifications we have been talking about,
+% agents choose their message and how to process incoming information,
+% possibly in the presence of noise.  However, what I present below will
+% be a combination of both.  In other words, agents will optimally
+% choose how to optimally combine their input to outputs as well as
+% simultaneously optimize the signal-to-noise ratio of their incoming
+% and outgoing messages.  
+
+\section{Synthesis model}
+This is the full mathematical specification of the model.  It is
+\emph{not} graph theoretic.    The model is in the
+spirit of Calvó‐Armengol, Antoni, Joan Martí, and Andrea
+Prat. "Communication and influence."  Theoretical Economics 10.2
+(2015): 649-690, but is far broader (more information about that model
+is in the commented out version of this tex).  In this write-up, I
+sometimes make assumptions for notational convenience but note that
+such assumptions can be relaxed.
+
+The model contains $N$ agents indexed by $i=1...N$.  There are also
+$K$ random variables representing a different part of the state of the
+world or the environment.  For simplicity, assume that each element of
+the environment is independent so that
+\begin{equation}
+  \theta_k \sim f_k
+\end{equation}
+where $\theta_k$ is the state of random variable $k$ and $f_k$ is a
+probability density/distribution function.  In general $K\neq N$.  For
+simplicity, assume that each of $\theta_k$ is one-dimensional.
+Allowing $\theta$ to be multi-dimensional as well as allowing each
+$\theta$ to be correlated would be a trivial extension at the expense
+of more notation.
+
+Each agent $i$ takes an action.  Each agent also sends and receives
+messages.  We assume that agent $i$ broadcasts.  That is, whatever
+agent $i$ says can be heard by all other agents, if they choose to do
+so (think mass emails). 
+
+% First, I will discuss how agents send messages, given their state.
+% Then I will discuss how agents receive messages.  Then I will discuss
+% how agents observe the environment.  Finally, I will discuss how
+% agents set their internal state.
+First, I will discuss how agents receive messages and observe the
+environment, then talk about how they choose their action  and finally
+discuss how they send messages. 
+
+\subsection{Receiving Observations}
+In this  section, we will discuss the observations an agent receives.
+Let $E_i$ be a $1\times G_i$ row vector.  Later we will discuss the
+elements of $E_i$ but intuitively, $E_i$ represents observations from
+the environment and whatever any of the other agents say.  Then, the
+observations of agent $i$ is given by
+\begin{equation}
+  \mathbf{O_{i}} = \gamma_i(\mathbf{E_i} + \mathbf{W_i}\odot
+  \mathcal{N}^e_{i}(0, \Sigma^e_{i}))
+\end{equation}
+where $W_i$ is a $1\times G_i$ row vector of the form $(\frac{1}{w_1},\frac{1}{w_1}...\frac{1}{w_{G_i}})$
+and $\odot$ represents element-wise multiplication.  $\gamma_i$ is a
+function from $\mathbb{R}^{G_i} \rightarrow \mathbb{R}^{G_i}$.  For
+now, we can just think of $\gamma_i$ as the identity 
+function but later, we might want it to be non-linear.  The term
+$\mathcal{N}^e_{i}(0, \Sigma^e_{i})$ represents a $1\times G_i$ vector
+of normal random variables with standard deviation $\Sigma^e_{i}$.
+
+Intuitively, agent $i$'s observations, $O_i$, are simply observations
+of the environment or the physical world \emph{and} messages sent by
+other players, both which are corrupted by noise.  
+
+
+\subsection{Choosing Actions}
+
+
+Given what agent $i$ observes, $O_i$, agent $i$'s action is given by
+\begin{equation}
+  \mathbf{A_{i}} = \alpha_i(O_iX_i)
+\end{equation}
+where $X_i$ is a $G_i\times D_i$ matrix.  This means that $A_i$ is a
+$1\times D_i$ row vector.  Intuitively, $D_i$ represents the number of
+different actions that agent $i$ can take.  That is to say, if $D_i$
+is 2, then agent $i$'s action space is two dimensional and thus agent
+$i$ can take $2$ actions.  $\alpha$ is a function but for now think of
+it as the identity.  
+
+\subsection{Sending Messages}
+Given agent $i$'s observation $O_i$, what agent $i$ says is given by
+\begin{equation}
+M_i = \beta(O_i\Omega_i + \mathcal{N}^m_{i}(0, \Sigma^m_{i}))
+\end{equation}
+where $\Omega_i$ is a $G_i\times F_i$ matrix and $\mathcal{N}^m_{i}(0,
+\Sigma^m_{i})$ is a $1\times F_i$ vector of normal random
+variables.  That means that $M_i$ is a $1\times F_i$ vector.
+Intuitively, $F_i$ represents the number of distinct things that agent
+$i$ can say.  Intuitively, agent $i$ can determine what it says by
+setting elements of $\Omega_i$ and the magnitude of those elements
+determine the signal to noise ratio.  $\beta$ is a function but for
+now, think of it as the identity.
+
+\subsection{Composition of $E_i$}
+So what exactly is $E_i$?  Simple, $E_i$ is just the concatenation of
+the environment and what all other agents $j<i$ say.  So, for agent
+$1$, $E_i$ is a $1\times K$ vector.  For agent 2, $E_i$ is a $1\times
+K + F_1$ vector.  For agent $3$, $E_i$ is a $1\times K + F_1 +F_2$ 
+vector.  In general, for agent $i$, $E_i$ is a $1\times K +
+\sum_{j<i}F_i$ vector.
+
+
+
+\section{Optimization Problem}
+As shorthand, let $\Omega = [\Omega_1, \Omega_2...\Omega_N]$, $X=[X_1,
+X_2...X_N]$, $W=[W_1, W_2...W_n]$ and $A=[A_1, A_2...A_N]$. 
+
+Finally, we can write the welfare function as:
+\begin{equation}
+  F = U(\theta, A) -  ||\Omega||^d - ||W||^d
+\end{equation}
+where $||\mathbf{q}||^d$ represents the $L^d$ norm of matrix
+$\mathbf{q}$ and $U$ is some function of the environment and the
+states of the nodes.  The important element to note about the welfare
+function is that it does \emph{not} explicitly depend on $X$, which
+represents the agent's internal computation on how to combine inputs
+to outputs.  Of course, $X$ implicitly enter the utility function
+through $U$ (since $A$ is a function of $X$), but there is no cost
+associated with the weights.  The optimization problem then becomes
+\begin{equation}
+  \max_{\Omega, X, W}F
+\end{equation}
+
+\subsection{Signal-to Noise Ratio}
+The main element of this model is that there is a \textbf{clear direct
+  relationship} between signal-to-noise ratio and communication cost.
+The higher the signal-to-noise ratio, the higher the penalization in
+the welfare function.  \jg{Question to Milo: Do you see why we need to
+  penalize for the magnitude of $\Omega$?.  If not, agent $i$ can just
+  blow up his message so that the noise is irrelevant and all agents
+  listening to him can just shrink it down.}
+
+
+\section{Real-World Interpretation of Variables}
+
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{|p{1in}|p{1.5in}|p{3in}|}
+\hline
+Item       & Type            & Interpretation                                                                                           \\
+$N$          & parameter       & Number of Agents in an Organization                                                                      \\
+$K$          & parameter       & Number of random variables in the environment                                                            \\
+$\theta_k$ & Random Variable & Environment External to the Organization                                                                 \\
+$f_k$      & parameter       & Distribution of environment variable $k$                                                                 \\
+$E_i$      & Variable        & All of the things (environment and other people) that agent $i$ could possible listen t.o                \\
+$W_i$      & Variable        & A matrix that represents how agent $i$ allocates its attention to everything it could possibly listen to \\
+$O_i$      & Variable        & What agent $i$ "observes" after it decides where to allocate its attention                               \\
+$A_i$      & Variable        & The action that agent $i$ takes                                                                          \\
+$X_i$      & Variable        & A variable that represents how agent $i$ combines what it observes $O_i$ to determine what it does.      \\
+$M_i$      & Variable        & What agent $i$ says                                                                                      \\
+$\Omega_i$ & Variable        & How agent $i$ transforms its outputs to
+                               what it says.
+  \\ \hline
+\end{tabular}
+\end{table}
+
+
+
+\end{document} 

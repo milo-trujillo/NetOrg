@@ -1,0 +1,459 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\begin{document}
+\title{Organization Structure with Information Synthesis}
+\maketitle
+
+% This document serves three purposes:
+% \begin{enumerate}
+% \item To provide a general and formal specification of our model.  
+% \item To show how our model is a generalization of Calvó‐Armengol,
+%   Antoni, Joan Martí, and Andrea Prat. "Communication and influence."
+%   Theoretical Economics 10.2 (2015): 649-690. 
+% \item To translate the purely mathematical specification to a neural
+%   network that can be trained to solve to model
+% \end{enumerate}
+% However, to make things clearer, I will start with the review of the
+% Communication and Influence (CI) model and then develop our synthesis
+% model and then compare the two.  To make things clear and precise, I
+% will avoid the terms ``node'', ``edge'' and any other graph-theoretic
+% concept until they are precisely defined.  
+
+% \section{CI Model}
+% I simplify their model to ease up on notation.  See the exact paper
+% for the full specification.  There are $n$ agents.  Each agent
+% receives an independent signal 
+% $\theta_i ~ \mathcal{N}(0, \sigma)$.  Each agent $i$ communicates with
+% each other agent $j \neq i$.  The signal agent $j$ receives from agent
+% $i$ is given by 
+% \begin{equation}
+% y_{ij} = \theta_i + \epsilon_{ij}, + \eta_{ij}
+% \end{equation}
+% where
+% \begin{align}
+% \epsilon_{ij} ~ \mathcal{N}(0, 1/r_{ij}) \nonumber \\
+% \eta_{ij} ~ \mathcal{N}(0, 1/p_{ij}) \nonumber \\
+% \end{align}
+% The interpretation is that $\epsilon{ij}$ is the ``noise associated
+% with active communication (preparing a presentation, writing a report,
+% hosting a visit, etc)'' and $\eta_{ij}$ is the noise associated with
+% passive communication (listening to a presentation, reading a report,
+% visiting a plant, etc).''  
+
+% After receiving a signal, agents choose action $a_i$ in $(-\infty,
+% \infty)$.  Agent $i$'s utility is given by:
+% \begin{equation}
+% u_i = -((a_i - \theta_i)^2  + \sum_{j \neq i}(a_i -a_j)^2
+% \end{equation}
+% Intuitively, agent $i$ wants to be close to the environment signal it
+% received and also be close to other agent's actions, which also want
+% to be close to the signal they receive.  The welfare function is just
+% then $\sum_iu_i$.  Note that that the welfare function is just a
+% function over the joint state of the environment (the $\theta$ terms)
+% and the ``states'' of the agents (the $a$ terms).  
+
+% However, the $r_{ij}$ and $p_{ij}$ terms are set endogenously.  That
+% is, agents invest in reducing the noise in their message as well as
+% the noise in the messages they receive.  These reductions are costly
+% and the utility function (and associated) social welfare function are
+% expanded to include these costs.  
+
+% Without talking about how they solve the model (which is relatively
+% unimportant to us at this point), let's tease out some of the main
+% elements of the model.
+
+% \begin{enumerate}
+% \item All to all communication
+% \item All agents' state contribute to the social welfare function
+% \item No information synthesis
+% \item Agent's main choice variable is to set the signal-to-noise ratio
+%   in their communication
+% \end{enumerate}
+
+% It is the last element that I want to focus on.  In this model, the
+% agents do not choose their message but instead simply choose how to
+% reduce the noise.  In the specifications we have been talking about,
+% agents choose their message and how to process incoming information,
+% possibly in the presence of noise.  However, what I present below will
+% be a combination of both.  In other words, agents will optimally
+% choose how to optimally combine their input to outputs as well as
+% simultaneously optimize the signal-to-noise ratio of their incoming
+% and outgoing messages.  
+
+\section{Synthesis model}
+This is the full mathematical specification of the model.  It is
+\emph{not} graph theoretic.  A next step will be to map this
+formulation to a neural network formulation.  The model is in the
+spirit of Calvó‐Armengol, Antoni, Joan Martí, and Andrea
+Prat. "Communication and influence."  Theoretical Economics 10.2
+(2015): 649-690, but is far broader (more information about that model
+is in the commented out version of this tex).  In this write-up, I
+sometimes make assumptions for notational convenience but note that
+such assumptions can be relaxed.
+
+The model contains $N$ agents indexed by $i=1...N$.  There are also
+$K$ random variables representing a different part of the state of the
+world or the environment.  For simplicity, assume that each element of
+the environment is independent so that
+\begin{equation}
+  \theta_k \sim f_k
+\end{equation}
+where $\theta_k$ is the state of random variable $k$ and $f_k$ is a
+probability density/distribution function.  In general $K\neq N$.  For
+simplicity, assume that each of $\theta_k$ is one-dimensional.
+Allowing $\theta$ to be multi-dimensional as well as allowing each
+$\theta$ to be correlated would be a trivial extension at the expense
+of more notation.
+
+
+Each agent $i$ takes an action $\mathbf{a_i}$, which is given by a
+$1\times v_i$ row vector.  Each agent also sends and receives
+messages.  We assume that agent $i$ broadcasts.  That is, whatever
+agent $i$ says can be heard by all other agents, if they choose to do
+so (think mass emails). 
+
+First, I will discuss how agents send messages, given their state.
+Then I will discuss how agents receive messages.  Then I will discuss
+how agents observe the environment.  Finally, I will discuss how
+agents set their internal state.
+
+\subsection{Sending Messages}
+Given agent $i$'s state, the messages that agent $i$ broadcasts is
+given by
+\begin{equation}
+  \mathbf{y_{i}} = \alpha(\mathbf{s_i}\odot\mathbf{w_{i}} + \mathcal{N}^a_{i}(0, \Sigma^a_{i}))
+\end{equation}
+where $\mathbf{w_{i}}$ is a $1\times v_i$ dimensional row vector,
+$\mathcal{N}^a_{i}(0, \Sigma^a_{i})$ is a multivariate normal random
+variable represented as a $1\times v_i$ row vector, $\alpha$ is vector
+valued function that outputs a $1\times v_i$ dimensional vector and
+$\odot$ represents element-wise multiplication.  Intuitively, given
+the state of an agent, $s_i$, the weights $w_i$, set the
+signal-to-noise ratio in agent $i$'s outward communication.  It is
+important to keep in mind that the weights $w_i$ do \emph{not} have
+anything to do with how an agent optimally combines incoming
+information (we will discuss that later).  The weights $w_i$ only have
+to do with the accuracy of agent $i$'s outgoing message.  The function
+$\alpha$ is from $\mathbb{R}^{v_i} \rightarrow \mathbb{R}^{v_i}$.  For
+example, $\alpha$ can apply the ``tanh'' function to each element of
+its input vector, or $\alpha$ can be the identity function.  The
+normality assumption on the noise can easily be dropped for any noise
+specification.
+
+\subsection{Receiving Messages From Other Agents}
+Given agent $i$'s state, the messages that agent $i$ receives from
+agent $j$ is given by
+\begin{equation}
+  \mathbf{r_{ij}} = \beta_{ji}(\mathbf{y_{ji}}\odot\mathbf{\omega_{ji}} +
+  \mathcal{N}^b_{ji}(0, \Sigma^b_{i})), \;\; j <i
+\end{equation}
+where $\mathbf{\omega_{ij}}$ is a $1\times v_j$ row vector and
+$\mathcal{N}^b_{ji}(0, \Sigma^b_{i})$ represents a $1\times v_j$
+vector of Gaussian random variables.  Once again, we can drop the
+normality assumption for any noise specification.  Since agent $i$ can
+listen to agent $j<i$ if it so desires, agent $i$ receives $i-1$
+distinct messages (one from each agent $j<i$), each of length $v_j$.
+Again, the weights $\omega{vi}$ control the signal to noise ratio
+between what agent $j$ sends and what agent $i$ actually receives.
+Like in the case of sending messages, the weights do not represent how
+to optimally combine information, they only control the signal to
+noise ratio.  $\beta_{ji}$ is a function from
+$\mathbb{R}^{v_j} \rightarrow \mathbb{R}^{v_j}$ and can be ``tanh'',
+sigmoid...etc.
+
+
+% This means that $\mathbf{y_{i}}$ is a vector, which implies that
+% agent $i$ can broadcast more than one distinct message.  The
+% function $\alpha$ can possibly be the logistic function on each
+% element of its input vector.  Alternatively, $\alpha$ can be the
+% identity function which means that whatever agent $i$ ``says'' plus
+% some noise is what is broadcast.
+
+
+
+
+
+% Although we can generalize to any noise specification, here we let
+% $\mathcal{N}^a_{i}$ be a $v$-variate normal random variable
+% represented as a row vector.  This represents the noise in agent
+% $i$'s broadcast.  Note that we can include the ``number of distinct
+% messages constraint'' we have been talking about if we add
+% constraints on the $w_{ij}$ terms.  If we want to implement the
+% constraint that an agent can only say $q$ distinct things but those
+% things can be heard by all, we just set $w_{ij}$ to be a $q$
+% dimensional vector and restrict $w_{ij} = w_{il} \; \; \forall j,l.$
+% We would also need to restrict $\mathcal{N}^a_{ij}$
+
+
+\subsection{Observing the Environment}
+In addition to receiving messages from other agents, agent $i$ can
+also observe the environment.  The observation agent $i$ receives from
+the environment is given by
+\begin{equation}
+  \mathbf{x_{i}} = \gamma_i(\mathbf{\theta}\odot\mathbf{\nu_{i}} +
+  \mathcal{N}^c_{i}(0, \Sigma^c_{i}))
+\end{equation}
+where $\theta= [\theta_1, \theta_2...\theta_k]$ and $\nu_i$ is a
+$1 \times k$ row vector and $\mathcal{N}^c_{i}(0, \Sigma^c_{i})$ is 1
+$1 \times k$ row vector of normal random variables.  Once again, the
+weights $\nu_i$ only controls the signal-to-noise ratio between the
+state of the environment and what agent $i$ observes from the
+environment.  $\gamma_i$ is a function from
+$\mathbb{R}^k \rightarrow \mathbb{R}^k$.
+
+\subsection{Setting a State}
+
+We now discuss how agent $i$'s state is determined.  Recall that agent
+$i$'s state is a $1 \times v_i$ vector.  Also recall, agent $i$'s
+input is $\mathbf{r}_{ij}, \;\; j<i$ and $\theta$ where each
+$\mathbf{r}_{ij}$ is a $1\times v_j$ dimensional vector.  To ease
+notation, let $\mathbf{O_i}$ be the concatenation of $\mathbf{r}_{ij}$
+and $x_is$ into a $1\times (\sum_{j<i}v_j +K)$ row vector that
+contains all possible messages that $i$ can receive.  Then, agent
+$i$'s state is given by
+\begin{equation}
+  \mathbf{s_i} = \Delta(\mathbf{O_i} \mathbf{\Lambda_i})
+  % s_i = \beta\left(\sum_{j<i}\left(y_{j}\mathbf{\omega_{ji}} +
+  %     \mathcal{N}^p_{ji}(0, \sigma^p_{ji})\mathbf{I}_{v_j \times
+  %     1}\right) + \sum_{k=1...K}\theta_kx_{ki} +
+  %   \mathcal{N}^e_{ki}(0, \sigma^e_{ki})\right)
+  \label{eq:state}
+\end{equation}
+where $\Lambda_i$ is a $(\sum_{j<i}v_j +K) \times v_i$ matrix and
+$\Delta$ is a function from
+$\mathbb{R}^{v_i} \rightarrow \mathbb{R}^{v_i}$.  Intuitively, a
+column of $\Lambda_i$ gives weights that combine all of agent $i$'s
+observations into one element of agent $i$'s state.  Each column of
+$\Lambda_i$ therefore represents a different way that agent $i$ can
+combine its input to form an element of its state.  Note that there is
+no noise in this combination.  That is, given inputs and weights,
+there is no noise in how agent $i$ combines its inputs.  The only
+noise that enters is when agent $i$ is either receiving or sending
+messages.
+
+The term state here is a bit misleading.  In reality, an agent's
+``state'' is what the agent intends to broadcast if there wasn't any
+noise.  What he actually broadcasts depends on the value of the noise
+and the weight controlling the signal to noise ratio. Any suggestions
+for a new term besides state?  Maybe an agent's ``intended output?''
+
+
+% First I will define the terms under the first sum and then I will
+% discuss the terms under the second sum.  The weights
+% $\mathbf{\omega_{ji}}$ is a column vector of dimension
+% $v_j \times 1$ (recall $v_j$ is the dimension of $j$'s broadcast)
+% Similarly, $\mathcal{N}^p_{ji}$ is a normal random variable of
+% dimension $v_j$ represented by a row vector and
+% $\mathbf{I}_{v_j \times 1}$ is a $v_j \times 1$ identity vector.
+% Before discussing the second sum in equation \ref{eq:state} I want
+% to discuss the first part.  This formulation means that agent $i$
+% combines all broadcasts from agents $j<i$.  However, each incoming
+% message to $i$ is subject to noise.  More specifically, it can be
+% that different messages from the same agent $j$ are subject to
+% different stochastic fluctuations.  That is why we need to sum over
+% the noise vector for a particular agent.  However, if everything is
+% Gaussian (as assumed above) we can simplify the notation to one
+% random variable.  Now I will discuss the terms in the second sum.
+% Each $x_{ki}$ is a scalar and $\theta_k$ represents the value of the
+% $k$th variable of the environment.  $\beta$ is a scalar function
+% (i.e. logistic or identity).
+
+% Intuitively, the vector $\mathbf{v_{ji}}$ represents how agent $i$
+% combines the output from agent $j$ to partially determine its
+% internal state.  $\mathcal{N}^p_{ji}$ represents the noise of $i$
+% listening to $j$.  Each of the $x_k$ are scalars and each
+% $\mathcal{N}^e_{ki}$ represents the noise at which agent $i$
+% observes environment element $k$.
+
+Finally, we can the write the welfare function as:
+\begin{equation}
+  W = U(\theta, s) - \sum_i \big(||\mathbf{w_i}||^d + ||\mathbf{\nu_i}||^d
+  + \sum_j||\mathbf{\omega_{ji}}||^d\big)
+\end{equation}
+where $||\mathbf{q}||^d$ represents the $L^d$ norm of vector
+$\mathbf{q}$ and $U$ is some function of the environment and the
+states of the nodes.  The important element to note about the welfare
+function is that it does \emph{not} depend on $\Lambda$, which
+represents the agent's internal computation on how to combine inputs
+to outputs.  Of course, $\Lambda$ implicity enter the utility function
+through $U$ but there is no cost associated with the weights in the
+matrix $\Lambda$.  The optimization problem then becomes
+\begin{equation}
+  \max_{\omega, \nu, w, \Lambda}W
+\end{equation}
+
+\subsection{Signal-to Noise Ratio}
+The main element of this model is that there is a \textbf{clear direct
+  relationship} between signal-to-noise ratio and communication cost.
+The higher the signal-to-noise ratio, the higher the penalization in
+the welfare function.  Also note that we don't need to worry about the
+``dynamic noise reduction'' problem because there is a cost for each
+agent inflating both its incoming and outgoing signal.  Another key
+element is that this formulation explicity disentangles computation
+(how an agent optimally combines all of its inputs) with communication
+(how an agent adjusts the signal-to-noise ratio).  We no longer have
+to quantify communication as how much an agent's internal state
+responds to a change in an incoming message (though that relationship
+still might hold).
+
+\subsection{Questions}
+Of course, the main question we want to ask pertains to the optimal
+hierarchy under different specifications of the utility function.
+However, there are several other questions we can ask such as
+(broadly):
+\begin{enumerate}
+\item Where in an organization are those that are best at observing
+  the environment?
+\item Where in an organization are the best communicators?
+\item Where in an organization are the best listeners?
+\end{enumerate}
+where we can change an agent's ability to observe, communicate and
+listen by varying the standard deviation of the agents' incoming and
+outgoing signals.
+
+\subsection{Initial Specification}
+For an initial specification, I want to try with all functions
+$\alpha, \beta, \gamma, \Delta$ just to be the identity function so
+everything is linear.  I also plan on begininng with everything being
+homogeneous (variance on noise, for example).  The only other crucial
+parameters are the $v_i$ parameters, which represent how many distinct
+things an agent can say.  I see a good first experiement being one
+that keeps everything homogenous and vary $v_i$.
+
+
+
+% One question that might arise is why are there so many weights and
+% what do they represent?  Remember agents are doing two things.
+% First, they are deciding how to optimally combine their inputs to
+% set their internal state.  Secondly, they are mapping their state to
+% an optimal output.  The way that our model captures both is that the
+% relative values of the weights determine how an agent should
+% optimally combine its incoming information while the absolute
+% magnitude of the weights sets the signal to noise ratio.  This way,
+% we do not conflate the ``optimal combining of information'' with the
+% cost of communication in the model.
+
+% For example, suppose that agents $A$ and $B$ receive real numbers
+% from the environment.  They have the ability to talk to $C$ and the
+% goal is for $C$ to tell the mean of the two numbers to $D$.  Without
+% noise, $A$ and $B$ can send the value of their number to $C$.  $C$
+% can then set the incoming weights to $.5$ and $.5$ and set its
+% outgoing weight to $D$ to $1$ and $D$ sets its incoming weight to
+% $1$.  The sum of the weights is then given by $1+1+.5+.5+1+1 =5$.
+% However, another possible solution would be for $A$ and $B$ to send
+% their number to $C$, $C$ sets its incoming weights to $1$ and its
+% outgoing weight to $.5$ and $D$ sets its incoming weight to $1$.
+% The total weight now is $1+1+1+1+.5+1=5.5$.  In this case, we would
+% say that the communication cost is higher, even though $C$ did the
+% exact same thing.  I.e. it took the mean of both $A$ and $B$ and
+% passed the mean on to $D$.
+
+% The problem with just using the weights to be communication cost is
+% that there is no base scale.  In the example above, there are an
+% infinite number of weights such that $D$ gets the mean of $A$ and
+% $B$ exactly, but it is not clear that higher weights should mean
+% more communication.  It really just depends on where the
+% transformations are happening.  For example, under the scenario
+% where $A$ and $B$ are only sending $.5$ times their input, it does
+% not mean they are only sending half of the amount of information
+% contained in their input.  Instead, $A$ and $B$ are just doing to
+% computation before sending their messages to $C$ instead of sending
+% their message to $C$ and having $C$ compute the mean.
+% \textbf{Again, using weights as a measure of communication cost
+% conflates how agents optimally transform information with how much
+% communication occurs.}
+
+% Consider the following example.  Although this is a simplification
+% of our above model, suppose there is a mean zero normal random
+% variable added to the signal from $C$ to $D$ and there is no other
+% noise.  Suppose that the weights into $C$ are such that $C$'s
+% internal state is the mean of $A$ and $B$.  Without noise, any
+% outgoing weight on $C$ and incoming weight on $D$ whose product is
+% $1$ will give the correct answer.  That relative relationship
+% represents how $C$ and $D$ should collectively optimally transform
+% their inputs and outputs, though it doesn't speak much to
+% communication cost.  However, if there is noise, then $C$ would want
+% its outgoing weight to be ``very high'' so that the signal-to-noise
+% ratio it sends to $D$ is high.  $D$ would then want to set its
+% incoming weight to the inverse of what it receives from $C$.
+% Therefore, the magnitude of $C$'s weight represents how much it
+% reduces the noise in its signal, which is representative of
+% communication costs.
+
+% I think for an initial formulation, we might only want to add noise
+% to inputs or outputs and not both, to begin with.
+
+\section{Synthesis Simplified}
+Let's make this simplier.  One reason for all of the noise terms and
+states was to disentangle what an agent does with what an agent says.
+However, an easier way to do that is to do it explicitly.  I will
+repeat much of the boiler-plate above  for concreteness.  
+
+There are $K$ random variables representing a different part of
+the state of the world or the environment.  For simplicity, assume
+that each element of the environment is independent so that
+\begin{equation}
+\theta_k \sim f_k
+\end{equation}
+where $\theta_k$ is the state of random variable $k$ and $f_k$ is a
+probability density/distribution function.  For
+simplicity, assume that each of $\theta_k$ is one-dimensional.
+Allowing any $\theta_i$ to be multi-dimensional as well as allowing each
+$\theta_i$ to be correlated would be a trivial extension at the expense
+of more notation.
+
+There are also $N$ agents.  Agents no longer have states but instead
+take actions.  Let $a_i$ be the action of agent $i$.  For simplicity,
+let $a_i\in\mathbb{R}$.  From a theoretical standpoint, $a_i$ does not
+need to be a real number and it can also be multi-dimensional.  For
+now however, let's assume it is one dimensional. Agents also send
+messages.  Let $\mathbf{y}_i$ be a $ M_i\times 1$ vector representing
+messages sent by agent $i$.  Again, to keep things simple, suppose
+each element of $\mathbf{y}_i$ be an element of $\mathbb{R}$.
+
+For simplicity, we assume that agent $i$ perfectly observes $y_i$ but
+it's observations of the environment are corrupted.  Agent $i$'s
+observation of the environment is given by the $K\times 1$ vector
+\begin{equation}
+O_i = [\theta_1 + \frac{1}{\eta_{i1}}N(0,\sigma), \theta_2 +
+\frac{1}{\eta_{i2}}N(0,\sigma), ... \theta_K +
+\frac{1}{\eta_{iK}}N(0,\sigma)]^T
+\end{equation}
+where $N$ is a normal random variable. Of course, we can have $\sigma$
+vary over agents and over environment nodes.  Here I omit the
+subscripts for clarity.
+
+Now, agent $i$'s action is simply given by
+\begin{equation}
+a_i = \alpha(\sum_{j<i}\mathbf{v_{ij}}\mathbf{y_j} + \mathbf{\nu_i}\mathbf{O_i})
+\end{equation}
+
+\noindent Similarly, agent $i$'s vector of outgoing messages is given by
+\begin{equation}
+y_i = \beta(\sum_{j<i}\mathbf{W_{ij}}\mathbf{y_j} +
+\mathbf{\Omega_i}\mathbf{O_i} + \mathbf{N}(0,\Sigma))
+\end{equation}
+where $\mathbf{W_{ij}}$ is a $M_i \times M_j$ matrix,  $\Omega_i$ is
+an $M_i\times K$ matrix and $\mathbf{N}$ is a $M_i\times 1$ dimensional
+normal random variable.  
+
+The social welfare function is then given by
+\begin{equation}
+W = U(a, \theta) - \sum_{ij}||W_{ij}|| - \sum_i||\Omega_i|| - \sum_{ij}||\eta_{ij}||
+\end{equation}
+
+\subsection{Discussion}
+Although the model is simple, here is a bit of discussion.  Two main
+features of our model are 1) agent's receive noisy observations of the
+environment and 2) agents can increase the signal-to-noise ratio by
+increasing the volume at which they say things.  Note there are no
+costs on the parameters that govern an agent's actions.  This is
+because agent's actions are unrelated to its communication and we do
+not care about costs of actions.  The only cost comes in to play when
+agents want to increase the signal content in their message and
+increase their ability to observe the environment.  
+
+
+
+\end{document} 
