@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import numpy as np
 import tensorflow as tf
 from agent import Agent
@@ -6,16 +7,6 @@ from matplotlib import pyplot as plt
 import time
 import networkx as nx
 plt.ion()
-
-parameters = {"innoise" : 2, # Stddev on incomming messages
-              "outnoise" : 2, # Stddev on outgoing messages
-              "num_environment" : 5, # Num univariate environment nodes
-              "num_agents" : 10, # Number of Agents
-              "fanout" : 1, # Distinct messages an agent can say
-              "statedim" : 1, # Dimension of Agent State
-              "envnoise": 25, # Stddev of environment state
-              "envobsnoise" : 2, # Stddev on observing environment
-              "batchsize" : 1000} # Training Batch Size
 
 class Organization(object):
     def __init__(self, num_environment, num_agents, innoise,
@@ -189,7 +180,3 @@ class Results(object):
     def _get_pos(self, G):
         numenv = len(self.trimmed[0].flatten())
         numnodes = numenv + len(self.trimmed)
-        
-    
-    
-        
