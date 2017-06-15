@@ -1,2 +1,6 @@
 .*.swp
 *.pyc
+code/*.png
+*.cys
+*.graphml
+.DS_Store
