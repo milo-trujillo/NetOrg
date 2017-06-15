@@ -144,7 +144,7 @@ class Results(object):
             lparams = lparams * np.int_(lparams * lparams>cutoff*maxp)
             self.trimmed.append(lparams)
 
-    def graph_org(self, vspace=1, hspace=2):
+    def generate_graph(self, vspace=1, hspace=2):
         numenv = len(self.trimmed[0].flatten())
         numnodes = numenv + len(self.trimmed)
         G = nx.DiGraph()
@@ -171,11 +171,29 @@ class Results(object):
             if nextlevel:
                 vpos += vspace
             G.node[nodenum]["pos"] = (hpos, vpos)
+        return G
+
+    def graph_org(self, vspace=1, hspace=2):
+        G = self.generate_graph(vspace, hspace)
         colors = nx.get_node_attributes(G, "color").values()
         pos= nx.get_node_attributes(G, "pos")
         nx.draw(G, pos, node_color = colors, with_labels=True,
                     labels=nx.get_node_attributes(G, "name"), alpha=.5, node_size=600 )
         return G
+
+    def graph_cytoscape(self, filename, vspace=1, hspace=2):
+        numenv = len(self.trimmed[0].flatten())
+        G = nx.DiGraph()
+        for i in range(numenv):
+            G.add_node(i, color="b", name="E" + str(i), category="environment")
+        for aix, agent in enumerate(self.trimmed):
+            nodenum = int(numenv + aix)
+            G.add_node(nodenum, color='r', name="A" + str(aix), category="agent")
+            for eix, val in enumerate(agent.flatten()):
+                if( abs(val) > 0 ):
+                    G.add_edge(int(eix), nodenum, width=float(val))
+        nx.write_graphml(G, filename)
+        #nx.write_gml(G, filename)
             
     def _get_pos(self, G):
         numenv = len(self.trimmed[0].flatten())
