@@ -17,7 +17,7 @@ class Organization(object):
         self.envobsnoise = envobsnoise
         self.agents = []
         for i in range(num_agents):
-            self.agents.append(Agent(innoise, outnoise, i, fanout, statedim, batchsize))
+            self.agents.append(Agent(innoise, outnoise, i, fanout, statedim, batchsize, num_agents))
         self.environment = tf.random_normal([self.batchsize, num_environment],
                                             mean=0, stddev = envnoise, dtype=tf.float64)
         self.build_org()
@@ -25,6 +25,7 @@ class Organization(object):
         self.learning_rate = tf.placeholder(tf.float64)
         self.decay= 0.001
         self.optimize = tf.train.AdadeltaOptimizer(self.learning_rate, rho=.9).minimize(self.objective)
+        #self.optimize = tf.train.AdamOptimizer(self.learning_rate).minimize(self.objective)
         #self.optimize = tf.train.RMSPropOptimizer(self.learning_rate).minimize(self.objective)
         #self.optimize = tf.train.GradientDescentOptimizer(self.learning_rate).minimize(self.objective)
         self.sess = tf.Session()
@@ -39,6 +40,7 @@ class Organization(object):
     def build_agent_params(self):
         indim = self.num_environment
         for ix, a in enumerate(self.agents):
+            print "Agent %d gets indim=%d" % (ix, indim)
             a.create_in_vec(indim)
             a.create_state_matrix(indim)
             a.create_out_matrix(indim)
@@ -73,12 +75,15 @@ class Organization(object):
                 indata = inenv
             innoise = tf.concat([envnoise, commnoise], 1)
             #print innoise, indata, a.listen_weights
+
+            # Add noise inversely-proportional to listening strength
             noisyin = indata  +  innoise/a.listen_weights
-            #noisyin = indata * a.listen_weights + innoise
+
             # Since listen weights is 1xin we get row wise division.
             state = tf.matmul(noisyin, a.state_weights)
             a.state = state
             self.states.append(state)
+
             outnoise = tf.random_normal([self.batchsize, a.fanout], stddev=a.noiseoutstd, dtype=tf.float64)
             #outnoise = tf.random_uniform([self.batchsize, a.fanout], minval=a.noiseoutstd,maxval=a.noiseoutstd, dtype=tf.float64)
             prenoise = tf.matmul(noisyin, a.out_weights)
@@ -139,11 +144,6 @@ class Organization(object):
         listen_params = self.sess.run([a.listen_weights for a in self.agents])
         return Results(training_res, listen_params)
     
-    def reset(self):
-        for agent in self.agents:
-            assignments = agent.random_reset()
-            self.sess.run(assignments)
-
 class Results(object):
     def __init__(self, training_res, listen_params):
         self.training_res = training_res
