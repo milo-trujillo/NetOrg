@@ -26,6 +26,7 @@ class Organization(object):
         self.decay= 0.001
         self.optimize = tf.train.AdadeltaOptimizer(self.learning_rate, rho=.9).minimize(self.objective)
         #self.optimize = tf.train.RMSPropOptimizer(self.learning_rate).minimize(self.objective)
+        #self.optimize = tf.train.GradientDescentOptimizer(self.learning_rate).minimize(self.objective)
         self.sess = tf.Session()
         init = tf.global_variables_initializer()
         self.sess.run(init)
@@ -71,7 +72,7 @@ class Organization(object):
             else:
                 indata = inenv
             innoise = tf.concat([envnoise, commnoise], 1)
-#            print innoise, indata, a.listen_weights
+            #print innoise, indata, a.listen_weights
             noisyin = indata  +  innoise/a.listen_weights
             #noisyin = indata * a.listen_weights + innoise
             # Since listen weights is 1xin we get row wise division.
@@ -112,17 +113,29 @@ class Organization(object):
             ax.set_xlabel("Training Epoch")
             line = ax.lines[0]
         training_res = []
+
+        # For each iteration
         for i  in range(niters):
-            lr = lrinit / (1+ i*self.decay)
+            lr = lrinit / (1+ i*self.decay) # Learn less over time?
+
+            # This line runs all the training
             self.sess.run(self.optimize, feed_dict={self.learning_rate:lr})
-            strat = self.sess.run(self.agents[0].listen_weights)
+
+            # Prints the agent's current strategy at each step so we can see how well it's doing
+            #strat = self.sess.run(self.agents[0].listen_weights)
+            # print(strat)
+
+            # Evaluates our current progress towards objective
             u = self.sess.run(self.objective)
             if verbose:
                 print  u
             training_res.append(u)
+
             if (i%50==0) and iplot:
                 line.set_data(np.arange(len(training_res)), np.log(training_res))
                 fig.canvas.draw()
+
+        # Get the strategy from all agents, which is the "network configuration" at the end
         listen_params = self.sess.run([a.listen_weights for a in self.agents])
         return Results(training_res, listen_params)
     
