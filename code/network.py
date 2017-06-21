@@ -11,7 +11,7 @@ plt.ion()
 class Organization(object):
     def __init__(self, num_environment, num_agents, innoise,
                      outnoise, fanout, statedim, envnoise, envobsnoise,
-                     batchsize, **kwargs):
+                     batchsize, optimizer, **kwargs):
         self.num_environment = num_environment
         self.batchsize = batchsize
         self.envobsnoise = envobsnoise
@@ -24,10 +24,27 @@ class Organization(object):
         self.objective  =  self.loss()
         self.learning_rate = tf.placeholder(tf.float64)
         self.decay= 0.001
-        self.optimize = tf.train.AdadeltaOptimizer(self.learning_rate, rho=.9).minimize(self.objective)
-        #self.optimize = tf.train.AdamOptimizer(self.learning_rate).minimize(self.objective)
-        #self.optimize = tf.train.RMSPropOptimizer(self.learning_rate).minimize(self.objective)
-        #self.optimize = tf.train.GradientDescentOptimizer(self.learning_rate).minimize(self.objective)
+
+        # Justin used the "AdadeltaOptimizer"
+        optimizers = {
+            "momentum":         tf.train.MomentumOptimizer(self.learning_rate, momentum=0.9).minimize(self.objective),
+            "adadelta":         tf.train.AdadeltaOptimizer(self.learning_rate, rho=.9).minimize(self.objective),
+            "adam":             tf.train.AdamOptimizer(self.learning_rate).minimize(self.objective),
+            "rmsprop":          tf.train.RMSPropOptimizer(self.learning_rate).minimize(self.objective),
+            "gradient-descent": tf.train.GradientDescentOptimizer(self.learning_rate).minimize(self.objective)
+            }
+
+        learning_rates = {
+            "momentum":         0.00001,
+            "adadelta":         100,
+            "adam":             100,
+            "rmsprop":          100,
+            "gradient-descent": 0.00001
+        }
+
+        self.optimize = optimizers[optimizer]
+        self.start_learning_rate = optimizers[optimizer]
+
         self.sess = tf.Session()
         init = tf.global_variables_initializer()
         self.sess.run(init)
@@ -108,7 +125,9 @@ class Organization(object):
         loss =  -(-differences - cost)
         return loss
 
-    def train(self, niters, lrinit=100, iplot=False, verbose=False):
+    def train(self, niters, lrinit=None, iplot=False, verbose=False):
+        if( lrinit == None ):
+            lrinit = self.start_learning_rate
         if iplot:
             fig, ax = plt.subplots()
             ax.plot([1],[1])
@@ -121,19 +140,24 @@ class Organization(object):
 
         # For each iteration
         for i  in range(niters):
-            lr = lrinit / (1+ i*self.decay) # Learn less over time?
+            lr = lrinit / (1+ i*self.decay) # Learn less over time
 
             # This line runs all the training
             self.sess.run(self.optimize, feed_dict={self.learning_rate:lr})
+            #for a in self.agents:
+                #a.normalize()
+            listen_params = self.sess.run([a.listen_weights for a in self.agents])
+            if verbose:
+                print "Listen_params now set to: " + str(listen_params)
 
             # Prints the agent's current strategy at each step so we can see how well it's doing
             #strat = self.sess.run(self.agents[0].listen_weights)
-            # print(strat)
+            #print(strat)
 
             # Evaluates our current progress towards objective
             u = self.sess.run(self.objective)
             if verbose:
-                print  u
+                print  "Loss function=" + str(u)
             training_res.append(u)
 
             if (i%50==0) and iplot:
@@ -142,6 +166,7 @@ class Organization(object):
 
         # Get the strategy from all agents, which is the "network configuration" at the end
         listen_params = self.sess.run([a.listen_weights for a in self.agents])
+        print "Listen_params now set to: " + str(listen_params)
         return Results(training_res, listen_params)
     
 class Results(object):
@@ -154,6 +179,8 @@ class Results(object):
         self.trimmed = []
         for lparams in self.listen_params:
             maxp = np.max(lparams)
+            print str(lparams)
+            # Line below is where most optimizing functions feak out
             lparams = lparams * np.int_(lparams * lparams>cutoff*maxp)
             self.trimmed.append(lparams)
 
