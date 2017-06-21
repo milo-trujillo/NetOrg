@@ -118,11 +118,12 @@ class Organization(object):
         return totalc
 
     def loss(self, exponent=2):
-        #difference = tf.reduce_mean(self.environment) - self.agents[-1].state
-        differences = [tf.reduce_mean((tf.reduce_mean(self.environment, 1, keep_dims=True) - a.state)**exponent) for a in self.agents]
+        # Get the difference^2 of how far each agent is from real avg of variables
+        realValue = tf.reduce_mean(self.environment, 1, keep_dims=True)
+        differences = [tf.reduce_mean((realValue - a.state)**exponent) for a in self.agents]
         differences = tf.add_n(differences)
-        cost  = self.listening_cost() + self.speaking_cost()
-        loss =  -(-differences - cost)
+        cost = self.listening_cost() + self.speaking_cost()
+        loss = differences + cost
         return loss
 
     def train(self, niters, lrinit=None, iplot=False, verbose=False):
