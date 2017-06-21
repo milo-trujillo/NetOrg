@@ -30,6 +30,13 @@ class Agent(object):
         #init = tf.constant(np.random.rand(1, indim))
         #self.listen_weights = tf.get_variable(dtype=tf.float64, name=str(self.num) + "listen" +str(self.id) , shape=[1, self.numagents])
         self.listen_weights = tf.get_variable(dtype=tf.float64, name=str(self.num) + "listen" +str(self.id) , shape=[1, indim])
+        with tf.Session() as sess:
+            init = tf.global_variables_initializer()
+            sess.run(init)
+            print "Agent %d Created with listen_weights: %s" % (self.num, str(sess.run(self.listen_weights)))
+
+    #def normalize(self):
+        #self.listen_weights = tf.sigmoid(self.listen_weights)
 
     def create_state_matrix(self, indim):
         # Activation Functions
