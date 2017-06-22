@@ -40,16 +40,16 @@ class Organization(object):
         learning_rates = {
             "momentum":         0.00001,
             "adadelta":         100,
-            "adam":             100,
-            "rmsprop":          100,
+            "adam":             1e-12,
+            "rmsprop":          1e-12,
             "gradient-descent": 0.00001
         }
 
         decays = {
-            "momentum":         0.001,
+            "momentum":         None,
             "adadelta":         0.001,
-            "adam":             0.001,
-            "rmsprop":          0.001,
+            "adam":             None,
+            "rmsprop":          None,
             "gradient-descent": 0.001
         }
 
@@ -156,10 +156,15 @@ class Organization(object):
 
         # For each iteration
         for i  in range(niters):
-            lr = lrinit / (1 + i*self.decay) # Learn less over time
 
-            # This line runs all the training
-            self.sess.run(self.optimize, feed_dict={self.learning_rate:lr})
+            # Run training, and adjust learning rate if it's an Optimizer that
+            # works with decaying learning rates (some don't)
+            if( self.decay != None ):
+            	lr = lrinit / (1 + i*self.decay) # Learn less over time
+            	self.sess.run(self.optimize, feed_dict={self.learning_rate:lr})
+            else:
+            	self.sess.run(self.optimize)
+
             #for a in self.agents:
                 #a.normalize()
             listen_params = self.sess.run([a.listen_weights for a in self.agents])
