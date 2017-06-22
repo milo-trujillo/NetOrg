@@ -245,9 +245,11 @@ class Results(object):
         for aix, agent in enumerate(self.trimmed):
             nodenum = int(numenv + aix)
             G.add_node(nodenum, color='r', name="A" + str(aix), category="agent")
-            for eix, val in enumerate(agent.flatten()):
-                if( abs(val) > 0 ):
-                    G.add_edge(int(eix), nodenum, width=float(val))
+            # For each node, weights will be zero if the edge should be ignored
+            # and otherwise represent the cost of the edge
+            for dest, weight in enumerate(agent.flatten()):
+                if( abs(weight) > 0 ):
+                    G.add_edge(int(dest), nodenum, width=float(weight), weight=float(abs(weight)))
         nx.write_graphml(G, filename)
         #nx.write_gml(G, filename)
             
