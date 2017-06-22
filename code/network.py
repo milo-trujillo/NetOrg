@@ -32,7 +32,7 @@ class Organization(object):
             "adadelta":         tf.train.AdadeltaOptimizer(self.learning_rate, rho=.9).minimize(self.objective),
             "adam":             tf.train.AdamOptimizer(self.learning_rate).minimize(self.objective),
             "rmsprop":          tf.train.RMSPropOptimizer(self.learning_rate).minimize(self.objective),
-            "gradient-descent": tf.train.GradientDescentOptimizer(self.learning_rate).minimize(self.objective)
+            "gradient-descent": tf.train.AdagradOptimizer(self.learning_rate).minimize(self.objective)
             }
 
         learning_rates = {
@@ -134,6 +134,9 @@ class Organization(object):
         differences = tf.add_n(differences)
         cost = self.listening_cost() + self.speaking_cost()
         loss = differences + cost
+        # Restrict output to 0..200
+        #normalized_loss = tf.multiply(tf.sigmoid(loss), tf.constant(200.0, dtype=tf.float64))
+        #return tf.minimum(loss, tf.constant(200.0, dtype=tf.float64))
         return loss
 
     def train(self, niters, lrinit=None, iplot=False, verbose=False):
