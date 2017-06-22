@@ -106,14 +106,15 @@ if __name__ == "__main__":
     for i in ([0]):
         print "Running trial %d" % (i+1)
         p = parameters[i]
-        org = network.Organization(optimizer="gradient-descent", **p)
+        org = network.Organization(optimizer="adadelta", **p)
         orgs.append(org)
-        res = org.train(1000, 100, iplot=False, verbose=True)
+        res = org.train(3000, 100, iplot=False, verbose=True)
         results.append(res)
     	ax.plot(np.log(res.training_res), label="Experiment "+str(i+1))
     	res.graph_cytoscape("trial" + str(i+1) + ".graphml")
     ax.set_xlabel("Training Epoch")
     ax.set_ylabel("Log(Welfare)")
     ax.legend()
-    plt.show(block=True)
+    #plt.show(block=True)
+    plt.savefig("trial.png")
     #G = res.graph_org()
