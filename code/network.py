@@ -159,11 +159,10 @@ class Organization(object):
 
             # Run training, and adjust learning rate if it's an Optimizer that
             # works with decaying learning rates (some don't)
+            lr = lrinit
             if( self.decay != None ):
             	lr = lrinit / (1 + i*self.decay) # Learn less over time
-            	self.sess.run(self.optimize, feed_dict={self.learning_rate:lr})
-            else:
-            	self.sess.run(self.optimize)
+            self.sess.run(self.optimize, feed_dict={self.learning_rate:lr})
 
             #for a in self.agents:
                 #a.normalize()
