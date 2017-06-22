@@ -23,7 +23,6 @@ class Organization(object):
         self.build_org()
         self.objective  =  self.loss()
         self.learning_rate = tf.placeholder(tf.float64)
-        self.decay= 0.001
 
         # Justin used the "AdadeltaOptimizer"
         optimizers = {
@@ -42,8 +41,17 @@ class Organization(object):
             "gradient-descent": 0.00001
         }
 
+        decays = {
+            "momentum":         0.001,
+            "adadelta":         0.001,
+            "adam":             0.001,
+            "rmsprop":          0.001,
+            "gradient-descent": 0.001
+        }
+
         self.optimize = optimizers[optimizer]
         self.start_learning_rate = optimizers[optimizer]
+        self.decay = decays[optimizer]
 
         self.sess = tf.Session()
         init = tf.global_variables_initializer()
@@ -141,7 +149,7 @@ class Organization(object):
 
         # For each iteration
         for i  in range(niters):
-            lr = lrinit / (1+ i*self.decay) # Learn less over time
+            lr = lrinit / (1 + i*self.decay) # Learn less over time
 
             # This line runs all the training
             self.sess.run(self.optimize, feed_dict={self.learning_rate:lr})
