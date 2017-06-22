@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+import matplotlib as mpl
+mpl.use('Agg')
 from matplotlib import pyplot as plt
 import network, agent
 import numpy as np
@@ -115,6 +117,4 @@ if __name__ == "__main__":
     ax.set_xlabel("Training Epoch")
     ax.set_ylabel("Log(Welfare)")
     ax.legend()
-    #plt.show(block=True)
     plt.savefig("trial.png")
-    #G = res.graph_org()
