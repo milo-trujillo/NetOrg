@@ -4,8 +4,6 @@ import tensorflow as tf
 from scipy.stats import norm
 from itertools import count
 
-
-
 class Agent(object):
     """
     An agent in an organization
@@ -25,9 +23,7 @@ class Agent(object):
         self.numagents = numagents
 
     def create_in_vec(self, indim):
-        # Activation Functions
         self.indim = indim
-        #init = tf.constant(np.random.rand(1, indim))
         #self.listen_weights = tf.get_variable(dtype=tf.float64, name=str(self.num) + "listen" +str(self.id) , shape=[1, self.numagents])
         self.listen_weights = tf.get_variable(dtype=tf.float64, name=str(self.num) + "listen" +str(self.id) , shape=[1, indim])
         with tf.Session() as sess:
@@ -35,18 +31,10 @@ class Agent(object):
             sess.run(init)
             print "Agent %d Created with listen_weights: %s" % (self.num, str(sess.run(self.listen_weights)))
 
-    #def normalize(self):
-        #self.listen_weights = tf.sigmoid(self.listen_weights)
-
     def create_state_matrix(self, indim):
-        # Activation Functions
-        #init = tf.constant(np.random.rand(indim, self.statedim))
         #self.state_weights = tf.get_variable(dtype=tf.float64, name=str(self.num) + "state" +str(self.id), shape=[self.numagents, self.statedim])
         self.state_weights = tf.get_variable(dtype=tf.float64, name=str(self.num) + "state" +str(self.id), shape=[indim, self.statedim])
 
-
     def create_out_matrix(self, indim):
-        # Activation Functions
-        #init = tf.constant(np.random.rand(indim, self.fanout))
         #self.out_weights = tf.get_variable(dtype=tf.float64, name=str(self.num) + "out" +str(self.id), shape=[self.numagents, self.fanout])
         self.out_weights = tf.get_variable(dtype=tf.float64, name=str(self.num) + "out" +str(self.id), shape=[indim, self.fanout])
