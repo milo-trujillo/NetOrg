@@ -13,7 +13,9 @@ plt.ion()
 class Organization(object):
     def __init__(self, num_environment, num_agents, innoise,
                      outnoise, fanout, statedim, envnoise, envobsnoise,
-                     batchsize, optimizer, **kwargs):
+                     batchsize, optimizer, randomSeed=False, **kwargs):
+        if( randomSeed == False ):
+            tf.set_random_seed(634)
         self.num_environment = num_environment
         self.batchsize = batchsize
         self.envobsnoise = envobsnoise
