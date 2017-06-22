@@ -57,6 +57,11 @@ class Organization(object):
         self.start_learning_rate = optimizers[optimizer]
         self.decay = decays[optimizer]
 
+        ## Prevent gradients from going insane and exploding the simulation
+        #gradients = self.optimize.compute_gradients(self.objective, tf.trainable_variables())
+        #capped_gradients = [(tf.clip_by_value(gr[0], -1., 1.), gr[1]) for gr in gradients]
+        #self.optimize = self.optimize.apply_gradients(capped_gradients)
+
         self.sess = tf.Session()
         init = tf.global_variables_initializer()
         self.sess.run(init)
@@ -163,6 +168,7 @@ class Organization(object):
             if( self.decay != None ):
             	lr = lrinit / (1 + i*self.decay) # Learn less over time
             self.sess.run(self.optimize, feed_dict={self.learning_rate:lr})
+
 
             #for a in self.agents:
                 #a.normalize()
