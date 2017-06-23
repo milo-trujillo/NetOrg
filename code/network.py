@@ -30,7 +30,7 @@ class Organization(object):
 
         # Justin used the "AdadeltaOptimizer"
         optimizers = {
-            "momentum":         tf.train.MomentumOptimizer(self.learning_rate, momentum=0.9).minimize(self.objective),
+            "momentum":         tf.train.MomentumOptimizer(self.learning_rate, momentum=0.5).minimize(self.objective),
             "adadelta":         tf.train.AdadeltaOptimizer(self.learning_rate, rho=.9).minimize(self.objective),
             "adam":             tf.train.AdamOptimizer(self.learning_rate).minimize(self.objective),
             "rmsprop":          tf.train.RMSPropOptimizer(self.learning_rate).minimize(self.objective),
@@ -38,23 +38,23 @@ class Organization(object):
             }
 
         learning_rates = {
-            "momentum":         0.00001,
-            "adadelta":         100,
-            "adam":             1e-12,
-            "rmsprop":          1e-12,
-            "gradient-descent": 0.00001
+            "momentum":         1e-6,
+            "adadelta":         15,
+            "adam":             1e-2,
+            "rmsprop":          1e-2,
+            "gradient-descent": 1e-1
         }
 
         decays = {
             "momentum":         None,
             "adadelta":         0.001,
-            "adam":             None,
-            "rmsprop":          None,
-            "gradient-descent": 0.001
+            "adam":             0.001,
+            "rmsprop":          0.001,
+            "gradient-descent": None
         }
 
         self.optimize = optimizers[optimizer]
-        self.start_learning_rate = optimizers[optimizer]
+        self.start_learning_rate = learning_rates[optimizer]
         self.decay = decays[optimizer]
 
         ## Prevent gradients from going insane and exploding the simulation
@@ -74,7 +74,7 @@ class Organization(object):
     def build_agent_params(self):
         indim = self.num_environment
         for ix, a in enumerate(self.agents):
-            print "Agent %d gets indim=%d" % (ix, indim)
+            #print "Agent %d gets indim=%d" % (ix, indim)
             a.create_in_vec(indim)
             a.create_state_matrix(indim)
             a.create_out_matrix(indim)
@@ -164,9 +164,9 @@ class Organization(object):
 
             # Run training, and adjust learning rate if it's an Optimizer that
             # works with decaying learning rates (some don't)
-            lr = lrinit
+            lr = float(lrinit)
             if( self.decay != None ):
-            	lr = lrinit / (1 + i*self.decay) # Learn less over time
+                lr = float(lrinit) / (1 + i*self.decay) # Learn less over time
             self.sess.run(self.optimize, feed_dict={self.learning_rate:lr})
 
 
@@ -192,21 +192,22 @@ class Organization(object):
 
         # Get the strategy from all agents, which is the "network configuration" at the end
         listen_params = self.sess.run([a.listen_weights for a in self.agents])
-        print "Listen_params now set to: " + str(listen_params)
-        return Results(training_res, listen_params)
+        welfare = self.sess.run(self.objective)
+        if( verbose ):
+            print "Listen_params now set to: " + str(listen_params)
+        return Results(training_res, listen_params, welfare)
     
 class Results(object):
-    def __init__(self, training_res, listen_params):
+    def __init__(self, training_res, listen_params, welfare):
         self.training_res = training_res
         self.listen_params = listen_params
         self.get_trimmed_listen_params()
+        self.welfare = welfare
 
     def get_trimmed_listen_params(self, cutoff=.1):
         self.trimmed = []
         for lparams in self.listen_params:
             maxp = np.max(lparams)
-            print str(lparams)
-            # Line below is where most optimizing functions feak out
             lparams = lparams * np.int_(lparams * lparams>cutoff*maxp)
             self.trimmed.append(lparams)
 
