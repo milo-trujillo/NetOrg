@@ -26,10 +26,10 @@ class Agent(object):
         self.indim = indim
         #self.listen_weights = tf.get_variable(dtype=tf.float64, name=str(self.num) + "listen" +str(self.id) , shape=[1, self.numagents])
         self.listen_weights = tf.get_variable(dtype=tf.float64, name=str(self.num) + "listen" +str(self.id) , shape=[1, indim])
-        with tf.Session() as sess:
-            init = tf.global_variables_initializer()
-            sess.run(init)
-            print "Agent %d Created with listen_weights: %s" % (self.num, str(sess.run(self.listen_weights)))
+        #with tf.Session() as sess:
+            #init = tf.global_variables_initializer()
+            #sess.run(init)
+            #print "Agent %d Created with listen_weights: %s" % (self.num, str(sess.run(self.listen_weights)))
 
     def create_state_matrix(self, indim):
         #self.state_weights = tf.get_variable(dtype=tf.float64, name=str(self.num) + "state" +str(self.id), shape=[self.numagents, self.statedim])
