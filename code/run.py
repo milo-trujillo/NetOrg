@@ -8,7 +8,6 @@ import numpy as np
 
 parameters = []
 
-# 1: Baseline Justin used
 parameters.append(
     {"innoise" : 2, # Stddev on incomming messages
     "outnoise" : 2, # Stddev on outgoing messages
@@ -18,10 +17,10 @@ parameters.append(
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 2, # Stddev on observing environment
-    "batchsize" : 1000} # Training Batch Size
+    "batchsize" : 1000, # Training Batch Size
+    "description" : "Baseline"}
 )
 
-# 2: Listening to environment is extra expensive
 parameters.append(
     {"innoise" : 2, # Stddev on incomming messages
     "outnoise" : 2, # Stddev on outgoing messages
@@ -31,10 +30,10 @@ parameters.append(
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 5, # Stddev on observing environment
-    "batchsize" : 1000} # Training Batch Size
+    "batchsize" : 1000, # Training Batch Size
+    "description" : "Environment Expensive"}
 )
 
-# 3: Listening to messages is extra expensive
 parameters.append(
     {"innoise" : 10, # Stddev on incomming messages
     "outnoise" : 2, # Stddev on outgoing messages
@@ -44,10 +43,10 @@ parameters.append(
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 2, # Stddev on observing environment
-    "batchsize" : 1000} # Training Batch Size
+    "batchsize" : 1000, # Training Batch Size
+    "desciption" : "Messages Expensive"}
 )
 
-# 4: There are twice as many environment nodes to listen to
 parameters.append(
     {"innoise" : 2, # Stddev on incomming messages
     "outnoise" : 2, # Stddev on outgoing messages
@@ -57,10 +56,10 @@ parameters.append(
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 2, # Stddev on observing environment
-    "batchsize" : 1000} # Training Batch Size
+    "batchsize" : 1000, # Training Batch Size
+    "description" : "Double Environment"}
 )
 
-# 5: There are twice as many agent nodes as normal
 parameters.append(
     {"innoise" : 2, # Stddev on incomming messages
     "outnoise" : 2, # Stddev on outgoing messages
@@ -70,10 +69,10 @@ parameters.append(
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 2, # Stddev on observing environment
-    "batchsize" : 1000} # Training Batch Size
+    "batchsize" : 1000, # Training Batch Size
+    "description" : "Double Agents"}
 )
 
-# 6: Baseline, but with 10x batch size
 parameters.append(
     {"innoise" : 2, # Stddev on incomming messages
     "outnoise" : 2, # Stddev on outgoing messages
@@ -83,7 +82,8 @@ parameters.append(
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 2, # Stddev on observing environment
-    "batchsize" : 10000} # Training Batch Size
+    "batchsize" : 10000, # Training Batch Size
+    "description" : "10x Batch Size"}
 )
 
 # 7: Baseline, but with 1/10th batch size
@@ -96,25 +96,36 @@ parameters.append(
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 2, # Stddev on observing environment
-    "batchsize" : 100} # Training Batch Size
+    "batchsize" : 100, # Training Batch Size
+    "description" : "1/10th Batch Size"}
 )
 
 if __name__ == "__main__":
     plt.ion()
-    orgs = []
-    results = []
-    fix,ax = plt.subplots()
-    #for i in range(len(parameters)):
-    for i in ([0]):
-        print "Running trial %d" % (i+1)
+    fig = plt.figure()
+    ax = fig.add_subplot(1,1,1)
+    res = None
+    iterations = 3000
+    for i in range(len(parameters)):
         p = parameters[i]
-        org = network.Organization(optimizer="adadelta", **p)
-        orgs.append(org)
-        res = org.train(3000, 100, iplot=False, verbose=True)
-        results.append(res)
-    	ax.plot(np.log(res.training_res), label="Experiment "+str(i+1))
-    	res.graph_cytoscape("trial" + str(i+1) + ".graphml")
+        print "Running trial %d (%s)" % (i+1, p["description"])
+        print " * Initializing network 1"
+        orgA = network.Organization(optimizer="adadelta", **p)
+        print " * Training network 1"
+        resA = orgA.train(iterations, iplot=False, verbose=False)
+        print " * Initializing network 2"
+        orgB = network.Organization(optimizer="rmsprop", **p)
+        print " * Training network 2"
+        resB = orgB.train(iterations, iplot=False, verbose=False)
+        print " * Saving better network"
+        if( resA.welfare > resB.welfare ):
+            res = resA
+        else:
+            res = resB
+        ax.plot(np.log(res.training_res), label=p["description"])
+        res.graph_cytoscape("trial" + str(i+1) + ".graphml")
+    ax.set_title("Trials")
     ax.set_xlabel("Training Epoch")
     ax.set_ylabel("Log(Welfare)")
     ax.legend()
-    plt.savefig("trial.png")
+    fig.savefig("trials.png")
