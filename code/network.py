@@ -17,6 +17,7 @@ class Organization(object):
         if( randomSeed == False ):
             tf.set_random_seed(634)
         self.num_environment = num_environment
+        self.num_agents = num_agents
         self.batchsize = batchsize
         self.envobsnoise = envobsnoise
         self.agents = []
@@ -56,11 +57,6 @@ class Organization(object):
         self.optimize = optimizers[optimizer]
         self.start_learning_rate = learning_rates[optimizer]
         self.decay = decays[optimizer]
-
-        ## Prevent gradients from going insane and exploding the simulation
-        #gradients = self.optimize.compute_gradients(self.objective, tf.trainable_variables())
-        #capped_gradients = [(tf.clip_by_value(gr[0], -1., 1.), gr[1]) for gr in gradients]
-        #self.optimize = self.optimize.apply_gradients(capped_gradients)
 
         self.sess = tf.Session()
         init = tf.global_variables_initializer()
@@ -134,17 +130,24 @@ class Organization(object):
         totalc = tf.add_n(summed)
         return totalc
 
+    # Gets the difference^2 of how far each agent is from real avg of variables
     def loss(self, exponent=2):
-        # Get the difference^2 of how far each agent is from real avg of variables
         realValue = tf.reduce_mean(self.environment, 1, keep_dims=True)
         differences = [tf.reduce_mean((realValue - a.state)**exponent) for a in self.agents]
         differences = tf.add_n(differences)
         cost = self.listening_cost() + self.speaking_cost()
         loss = differences + cost
-        # Restrict output to 0..200
-        #normalized_loss = tf.multiply(tf.sigmoid(loss), tf.constant(200.0, dtype=tf.float64))
-        #return tf.minimum(loss, tf.constant(200.0, dtype=tf.float64))
         return loss
+
+    # Gets avg loss, if we turn off one node at a time (should emphasize redundancy)
+    # This is tricky, since we have to describe it functionally, not iteratively,
+    # since tensorflow variables are evaluated at a later point
+    def ruggedLoss(self, exponent=2):
+        realValue = tf.reduce_mean(self.environment, 1, keep_dims=True)
+        cost = self.listening_cost() + self.speaking_cost()
+        for i in range(0, self.num_agents):
+            a = self.agents[i]
+        loss = avg_differences + cost
 
     def train(self, niters, lrinit=None, iplot=False, verbose=False):
         if( lrinit == None ):
@@ -173,8 +176,10 @@ class Organization(object):
             #for a in self.agents:
                 #a.normalize()
             listen_params = self.sess.run([a.listen_weights for a in self.agents])
+            output_params = self.sess.run([a.out_weights for a in self.agents])
             if verbose:
                 print "Listen_params now set to: " + str(listen_params)
+                print "Output_params now set to: " + str(output_params)
 
             # Prints the agent's current strategy at each step so we can see how well it's doing
             #strat = self.sess.run(self.agents[0].listen_weights)
