@@ -4,16 +4,17 @@ import tensorflow as tf
 from agent import Agent
 import copy
 import matplotlib as mpl
-mpl.use('Agg')
+mpl.use('Agg') # Don't require a GUI to generate graphs
 from matplotlib import pyplot as plt
 import time
+import os
 import networkx as nx
 plt.ion()
 
 class Organization(object):
     def __init__(self, num_environment, num_agents, innoise,
                      outnoise, fanout, statedim, envnoise, envobsnoise,
-                     batchsize, optimizer, randomSeed=False, **kwargs):
+                     batchsize, optimizer, randomSeed=False, tensorboard=None, **kwargs):
         if( randomSeed == False ):
             tf.set_random_seed(634)
         self.num_environment = num_environment
@@ -59,13 +60,17 @@ class Organization(object):
         self.decay = decays[optimizer]
 
         self.sess = tf.Session()
+        if( tensorboard == None ):
+            self.writer = None
+        else:
+            self.writer = tf.summary.FileWriter(tensorboard, self.sess.graph)
+        self.saver = tf.train.Saver()
         init = tf.global_variables_initializer()
         self.sess.run(init)
 
     def build_org(self):
         self.build_agent_params()
         self.build_wave()
-        
 
     def build_agent_params(self):
         indim = self.num_environment
@@ -134,19 +139,30 @@ class Organization(object):
     def loss(self, exponent=2):
         realValue = tf.reduce_mean(self.environment, 1, keep_dims=True)
         differences = [tf.reduce_mean((realValue - a.state)**exponent) for a in self.agents]
-        differences = tf.add_n(differences)
+        differenceSum = tf.add_n(differences)
         cost = self.listening_cost() + self.speaking_cost()
-        loss = differences + cost
+        loss = differenceSum + cost
         return loss
 
     # Gets avg loss, if we turn off one node at a time (should emphasize redundancy)
     # This is tricky, since we have to describe it functionally, not iteratively,
     # since tensorflow variables are evaluated at a later point
     def ruggedLoss(self, exponent=2):
+        cachefilename = "/tmp/" + str(os.getpid()) + ".checkpoint"
         realValue = tf.reduce_mean(self.environment, 1, keep_dims=True)
         cost = self.listening_cost() + self.speaking_cost()
+        saver.save(self.sess, cachefilename)
         for i in range(0, self.num_agents):
-            a = self.agents[i]
+            # Make a copy of the graph so we don't blow up important bits
+            g = tf.Graph()
+            with tf.Session(graph=g) as s:
+                saver.restore(s, cachefilename)
+                a = self.agents[i]
+                new_weights = tf.zeros_like(a.out_weights)
+                s.run(new_weights)
+                differences = [tf.reduce_mean((realValue - a.state)**exponent) for a in self.agents]
+                differences = tf.add_n(differences)
+                #loss = 
         loss = avg_differences + cost
 
     def train(self, niters, lrinit=None, iplot=False, verbose=False):
@@ -200,6 +216,8 @@ class Organization(object):
         welfare = self.sess.run(self.objective)
         if( verbose ):
             print "Listen_params now set to: " + str(listen_params)
+        if( self.writer != None ):
+            self.writer.close()
         return Results(training_res, listen_params, welfare)
     
 class Results(object):
