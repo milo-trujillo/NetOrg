@@ -17,6 +17,7 @@ class Organization(object):
                      batchsize, optimizer, randomSeed=False, tensorboard=None, **kwargs):
         if( randomSeed == False ):
             tf.set_random_seed(634)
+        self.sess = tf.Session()
         self.num_environment = num_environment
         self.num_agents = num_agents
         self.batchsize = batchsize
@@ -27,7 +28,7 @@ class Organization(object):
         self.environment = tf.random_normal([self.batchsize, num_environment],
                                             mean=0, stddev = envnoise, dtype=tf.float64)
         self.build_org()
-        self.objective  =  self.loss()
+        self.objective  =  self.ruggedLoss()
         self.learning_rate = tf.placeholder(tf.float64)
 
         # Justin used the "AdadeltaOptimizer"
@@ -59,7 +60,6 @@ class Organization(object):
         self.start_learning_rate = learning_rates[optimizer]
         self.decay = decays[optimizer]
 
-        self.sess = tf.Session()
         if( tensorboard == None ):
             self.writer = None
         else:
@@ -88,82 +88,88 @@ class Organization(object):
         recursively use to build all other agent's states and outputs
         """
         self.states = []
-        self.outputs = []
+        self.outputs = [[] for x in range(0, len(self.agents)+1)]
         for a in self.agents:
             envnoise = tf.random_normal([self.batchsize, self.num_environment], stddev=self.envobsnoise, dtype=tf.float64)
-            #envnoise = tf.random_uniform([self.batchsize, self.num_environment],
-                                            #minval = -self.envobsnoise, maxval= self.envobsnoise, dtype=tf.float64)
-            inenv = self.environment
-            incomm = None #?
-            for inmsgs in self.outputs:
-                if incomm is None:
-                    incomm = inmsgs # Stays None if inmsgs blank, otherwise becomes inmsgs
-                else:
-                    incomm =  tf.concat([incomm, inmsgs], 1) # If already a message, then concat
             commnoise = tf.random_normal([self.batchsize, a.indim - self.num_environment], stddev=a.noiseinstd, dtype=tf.float64)
-            #commnoise = tf.random_uniform([self.batchsize, a.indim - self.num_environment],
-                                              #minval=a.noiseinstd, maxval=a.noiseinstd, dtype=tf.float64)
-            # Noise on inputs
-            if incomm is not None:
-                indata = tf.concat([inenv, incomm], 1) # batchsize x 
-            else:
-                indata = inenv
-            innoise = tf.concat([envnoise, commnoise], 1)
-            #print innoise, indata, a.listen_weights
 
-            # Add noise inversely-proportional to listening strength
-            noisyin = indata  +  innoise/a.listen_weights
+            noisyin = []
+            state = []
+            a.state = []
 
-            # Since listen weights is 1xin we get row wise division.
-            state = tf.matmul(noisyin, a.state_weights)
-            a.state = state
-            self.states.append(state)
+            for i in range(0, len(self.agents) + 1):
+                inenv = self.environment
+                incomm = None #?
+                for inmsgs in self.outputs[i]:
+                    if incomm is None:
+                        incomm = inmsgs # Stays None if inmsgs blank, otherwise becomes inmsgs
+                    else:
+                        incomm =  tf.concat([incomm, inmsgs], 1) # If already a message, then concat
 
-            outnoise = tf.random_normal([self.batchsize, a.fanout], stddev=a.noiseoutstd, dtype=tf.float64)
-            #outnoise = tf.random_uniform([self.batchsize, a.fanout], minval=a.noiseoutstd,maxval=a.noiseoutstd, dtype=tf.float64)
-            prenoise = tf.matmul(noisyin, a.out_weights)
-            output = prenoise + outnoise
-            self.outputs.append(output)
+                # Noise on inputs
+                if incomm is not None:
+                    indata = tf.concat([inenv, incomm], 1) # batchsize x 
+                else:
+                    indata = inenv
+                innoise = tf.concat([envnoise, commnoise], 1)
+
+                #print "Printing inenv shape (iteration=%d, agent=%d):" % (i, a.num)
+                #print inenv.get_shape().as_list()
+                #print "Printing indata shape (iteration=%d, agent=%d):" % (i, a.num)
+                #print indata.get_shape().as_list()
+                #print "Printing innoise shape (iteration=%d, agent=%d):" % (i, a.num)
+                #print innoise.get_shape().as_list()
+                #print "Printing listen_weights shape (iteration=%d, agent=%d):" % (i, a.num)
+                #print a.listen_weights[i].get_shape().as_list()
+
+                # Add noise inversely-proportional to listening strength
+                noise = innoise/a.listen_weights[i]
+                noisyin.append(indata  +  noise)
+
+                # Since listen weights is 1xin we get row wise division.
+                state.append(tf.matmul(noisyin[i], a.state_weights[i]))
+                a.state.append(state[i])
+                self.states.append(state[i])
+
+                outnoise = tf.random_normal([self.batchsize, a.fanout], stddev=a.noiseoutstd, dtype=tf.float64)
+                #outnoise = tf.random_uniform([self.batchsize, a.fanout], minval=a.noiseoutstd,maxval=a.noiseoutstd, dtype=tf.float64)
+                prenoise = tf.matmul(noisyin[i], a.out_weights[i])
+                output = prenoise + outnoise
+                self.outputs[i].append(output)
 
     def listening_cost(self, exponent=2):
-        summed = [tf.reduce_sum(tf.abs(x.listen_weights))**exponent for x in self.agents]
+        summed = [tf.reduce_sum(tf.abs(x.listen_weights[0]))**exponent for x in self.agents]
         totalc = tf.add_n(summed)
         return totalc
 
     def speaking_cost(self, exponent=2):
-        summed = [tf.reduce_sum(tf.abs(x.out_weights))**exponent for x in self.agents]
+        summed = [tf.reduce_sum(tf.abs(x.out_weights[0]))**exponent for x in self.agents]
         totalc = tf.add_n(summed)
         return totalc
 
     # Gets the difference^2 of how far each agent is from real avg of variables
     def loss(self, exponent=2):
         realValue = tf.reduce_mean(self.environment, 1, keep_dims=True)
-        differences = [tf.reduce_mean((realValue - a.state)**exponent) for a in self.agents]
+        differences = [tf.reduce_mean((realValue - a.state[0])**exponent) for a in self.agents]
         differenceSum = tf.add_n(differences)
-        cost = self.listening_cost() + self.speaking_cost()
-        loss = differenceSum + cost
+        cost = tf.add(self.listening_cost(), self.speaking_cost())
+        loss = tf.add(differenceSum, cost)
         return loss
 
     # Gets avg loss, if we turn off one node at a time (should emphasize redundancy)
     # This is tricky, since we have to describe it functionally, not iteratively,
     # since tensorflow variables are evaluated at a later point
     def ruggedLoss(self, exponent=2):
-        cachefilename = "/tmp/" + str(os.getpid()) + ".checkpoint"
+        differences = []
         realValue = tf.reduce_mean(self.environment, 1, keep_dims=True)
+        for i in range(0, self.num_agents + 1):
+            diff = [tf.reduce_mean((realValue - a.state[i]) ** exponent) for a in self.agents]
+            diffSum = tf.add_n(diff)
+            differences.append(diffSum)
+        differenceSum = tf.reduce_mean(differences)
         cost = self.listening_cost() + self.speaking_cost()
-        saver.save(self.sess, cachefilename)
-        for i in range(0, self.num_agents):
-            # Make a copy of the graph so we don't blow up important bits
-            g = tf.Graph()
-            with tf.Session(graph=g) as s:
-                saver.restore(s, cachefilename)
-                a = self.agents[i]
-                new_weights = tf.zeros_like(a.out_weights)
-                s.run(new_weights)
-                differences = [tf.reduce_mean((realValue - a.state)**exponent) for a in self.agents]
-                differences = tf.add_n(differences)
-                #loss = 
-        loss = avg_differences + cost
+        loss = tf.add(differenceSum, cost)
+        return loss
 
     def train(self, niters, lrinit=None, iplot=False, verbose=False):
         if( lrinit == None ):
@@ -191,11 +197,11 @@ class Organization(object):
 
             #for a in self.agents:
                 #a.normalize()
-            listen_params = self.sess.run([a.listen_weights for a in self.agents])
-            output_params = self.sess.run([a.out_weights for a in self.agents])
+            listen_params = self.sess.run([a.listen_weights[0] for a in self.agents])
+            output_params = self.sess.run([a.out_weights[0] for a in self.agents])
             if verbose:
-                print "Listen_params now set to: " + str(listen_params)
-                print "Output_params now set to: " + str(output_params)
+                print "Listen_params now set to: " + str(listen_params[0])
+                print "Output_params now set to: " + str(output_params[0])
 
             # Prints the agent's current strategy at each step so we can see how well it's doing
             #strat = self.sess.run(self.agents[0].listen_weights)
@@ -212,7 +218,7 @@ class Organization(object):
                 fig.canvas.draw()
 
         # Get the strategy from all agents, which is the "network configuration" at the end
-        listen_params = self.sess.run([a.listen_weights for a in self.agents])
+        listen_params = self.sess.run([a.listen_weights[0] for a in self.agents])
         welfare = self.sess.run(self.objective)
         if( verbose ):
             print "Listen_params now set to: " + str(listen_params)
