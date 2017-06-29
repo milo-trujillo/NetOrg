@@ -166,7 +166,7 @@ class Organization(object):
             diff = [tf.reduce_mean((realValue - a.state[i]) ** exponent) for a in self.agents]
             diffSum = tf.add_n(diff)
             differences.append(diffSum)
-        differenceSum = tf.reduce_mean(differences)
+        differenceSum = tf.add_n(differences)
         cost = self.listening_cost() + self.speaking_cost()
         loss = tf.add(differenceSum, cost)
         return loss
