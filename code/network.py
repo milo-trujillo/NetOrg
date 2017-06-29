@@ -15,6 +15,7 @@ class Organization(object):
     def __init__(self, num_environment, num_agents, innoise,
                      outnoise, fanout, statedim, envnoise, envobsnoise,
                      batchsize, optimizer, randomSeed=False, tensorboard=None, **kwargs):
+        tf.reset_default_graph() # Clear all existing tensorflow memory
         if( randomSeed == False ):
             tf.set_random_seed(634)
         self.sess = tf.Session()
