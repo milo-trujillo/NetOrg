@@ -44,7 +44,7 @@ parameters.append(
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 2, # Stddev on observing environment
     "batchsize" : 1000, # Training Batch Size
-    "desciption" : "Messages Expensive"}
+    "description" : "Messages Expensive"}
 )
 
 parameters.append(
