@@ -25,7 +25,7 @@ class Organization(object):
         self.envobsnoise = envobsnoise
         self.agents = []
         for i in range(num_agents):
-            self.agents.append(Agent(innoise, outnoise, i, fanout, statedim, batchsize, num_agents))
+            self.agents.append(Agent(innoise, outnoise, i, fanout, statedim, batchsize, num_agents, num_environment))
         self.environment = tf.random_normal([self.batchsize, num_environment],
                                             mean=0, stddev = envnoise, dtype=tf.float64)
         self.build_org()

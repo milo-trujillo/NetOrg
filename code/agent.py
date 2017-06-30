@@ -12,7 +12,7 @@ class Agent(object):
     
     """
     _ids = count(0)
-    def __init__(self, noiseinstd, noiseoutstd, num, fanout, statedim, batchsize, numagents, **kwargs):
+    def __init__(self, noiseinstd, noiseoutstd, num, fanout, statedim, batchsize, numagents, numenv, **kwargs):
         self.id = next(self._ids)
         self.num = num
         self.statedim = statedim
@@ -21,6 +21,7 @@ class Agent(object):
         self.noiseoutstd = noiseoutstd
         self.batchsize = batchsize
         self.numagents = numagents
+		self.numenv = numenv
 
     def create_in_vec(self, indim):
         self.indim = indim
@@ -28,9 +29,10 @@ class Agent(object):
         self.listen_weights = []
         for i in range(0, self.numagents + 1):
             if( i == 0 ):
-                self.listen_weights.append(tf.get_variable(dtype=tf.float64, name=str(self.num) + "listen" + str(self.id) + str(i) , shape=[1, indim]))
+                self.listen_weights.append(tf.get_variable(dtype=tf.float64, shape=[1, indim]))
             else:
-                self.listen_weights.append(tf.identity(self.listen_weights[0]))
+				# TODO: Make the listen weights an identity for listen_weights[0] *except* that listens to dead agents are set to zero!
+                self.listen_weights.append(tf.zeros_like(self.listen_weights[0]), trainable=False)
         with tf.Session() as sess:
             init = tf.global_variables_initializer()
             sess.run(init)
