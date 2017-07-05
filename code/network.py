@@ -138,13 +138,13 @@ class Organization(object):
                 output = prenoise + outnoise
                 self.outputs[i].append(output)
 
-    def listening_cost(self, exponent=2):
-        summed = [tf.reduce_sum(tf.abs(x.listen_weights[0]))**exponent for x in self.agents]
+    def listening_cost(self, exponent=2, iteration=0):
+        summed = [tf.reduce_sum(tf.abs(x.listen_weights[iteration]))**exponent for x in self.agents]
         totalc = tf.add_n(summed)
         return totalc
 
-    def speaking_cost(self, exponent=2):
-        summed = [tf.reduce_sum(tf.abs(x.out_weights[0]))**exponent for x in self.agents]
+    def speaking_cost(self, exponent=2, iteration=0):
+        summed = [tf.reduce_sum(tf.abs(x.out_weights[iteration]))**exponent for x in self.agents]
         totalc = tf.add_n(summed)
         return totalc
 
@@ -162,13 +162,16 @@ class Organization(object):
     # since tensorflow variables are evaluated at a later point
     def ruggedLoss(self, exponent=2):
         differences = []
+        costs = []
         realValue = tf.reduce_mean(self.environment, 1, keep_dims=True)
         for i in range(0, self.num_agents + 1):
             diff = [tf.reduce_mean((realValue - a.state[i]) ** exponent) for a in self.agents]
             diffSum = tf.add_n(diff)
             differences.append(diffSum)
+            c = self.listening_cost(iteration=i) + self.speaking_cost(iteration=i)
+            costs.append(c)
         differenceSum = tf.add_n(differences)
-        cost = self.listening_cost() + self.speaking_cost()
+        cost = tf.add_n(costs)
         loss = tf.add(differenceSum, cost)
         return loss
 
