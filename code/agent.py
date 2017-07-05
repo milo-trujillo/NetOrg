@@ -29,9 +29,10 @@ class Agent(object):
         self.listen_weights = []
         for i in range(0, self.numagents + 1):
             if( i == 0 ):
-                self.listen_weights.append(tf.get_variable(dtype=tf.float64, shape=[1, indim]))
+                n = str(self.num) + "listen" + str(self.id)
+                self.listen_weights.append(tf.get_variable(dtype=tf.float64, name=n, shape=[1, indim]))
             elif( self.num == i + 1 ):
-                self.listen_weights.append(tf.zeros_like(self.listen_weights[0]), trainable=False)
+                self.listen_weights.append(tf.Variable(tf.zeros_like(self.listen_weights[0]), trainable=False))
             else:
                 self.listen_weights.append(tf.identity(self.listen_weights[0]))
         with tf.Session() as sess:
@@ -46,7 +47,7 @@ class Agent(object):
             if( i == 0 ):
                 self.state_weights.append(tf.get_variable(dtype=tf.float64, name=str(self.num) + "state" + str(self.id) + str(i), shape=[indim, self.statedim]))
             else:
-                self.state_weights.append(tf.Variable(self.state_weights[0].initialized_value())
+                self.state_weights.append(tf.Variable(self.state_weights[0].initialized_value()))
         with tf.Session() as sess:
             init = tf.global_variables_initializer()
             sess.run(init)
