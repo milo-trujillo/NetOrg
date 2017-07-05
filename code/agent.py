@@ -21,7 +21,7 @@ class Agent(object):
         self.noiseoutstd = noiseoutstd
         self.batchsize = batchsize
         self.numagents = numagents
-		self.numenv = numenv
+        self.numenv = numenv
 
     def create_in_vec(self, indim):
         self.indim = indim
@@ -30,9 +30,10 @@ class Agent(object):
         for i in range(0, self.numagents + 1):
             if( i == 0 ):
                 self.listen_weights.append(tf.get_variable(dtype=tf.float64, shape=[1, indim]))
-            else:
-				# TODO: Make the listen weights an identity for listen_weights[0] *except* that listens to dead agents are set to zero!
+            elif( self.num == i + 1 ):
                 self.listen_weights.append(tf.zeros_like(self.listen_weights[0]), trainable=False)
+            else:
+                self.listen_weights.append(tf.identity(self.listen_weights[0]))
         with tf.Session() as sess:
             init = tf.global_variables_initializer()
             sess.run(init)
@@ -45,7 +46,7 @@ class Agent(object):
             if( i == 0 ):
                 self.state_weights.append(tf.get_variable(dtype=tf.float64, name=str(self.num) + "state" + str(self.id) + str(i), shape=[indim, self.statedim]))
             else:
-                self.state_weights.append(tf.zeros_like(self.state_weights[0]))
+                self.state_weights.append(tf.Variable(self.state_weights[0].initialized_value())
         with tf.Session() as sess:
             init = tf.global_variables_initializer()
             sess.run(init)
@@ -60,7 +61,7 @@ class Agent(object):
             elif( i == (self.num + 1) ):
                 self.out_weights.append(tf.Variable(tf.zeros_like(self.out_weights[0]), trainable=False))
             else:
-                self.out_weights.append(tf.identity(self.out_weights[0]))
+                self.out_weights.append(tf.Variable(self.out_weights[0].initialized_value()))
         with tf.Session() as sess:
             init = tf.global_variables_initializer()
             sess.run(init)
