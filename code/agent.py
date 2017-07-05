@@ -12,7 +12,7 @@ class Agent(object):
     
     """
     _ids = count(0)
-    def __init__(self, noiseinstd, noiseoutstd, num, fanout, statedim, batchsize, numagents, **kwargs):
+    def __init__(self, noiseinstd, noiseoutstd, num, fanout, statedim, batchsize, numagents, numenv, **kwargs):
         self.id = next(self._ids)
         self.num = num
         self.statedim = statedim
@@ -21,10 +21,11 @@ class Agent(object):
         self.noiseoutstd = noiseoutstd
         self.batchsize = batchsize
         self.numagents = numagents
+        self.numenv = numenv
+        self.output = tf.Variable(tf.random_normal([batchsize, fanout], stddev=noiseoutstd, dtype=tf.float64))
 
     def create_in_vec(self, indim):
         self.indim = indim
-        #self.listen_weights = tf.get_variable(dtype=tf.float64, name=str(self.num) + "listen" +str(self.id) , shape=[1, self.numagents])
         self.listen_weights = tf.get_variable(dtype=tf.float64, name=str(self.num) + "listen" +str(self.id) , shape=[1, indim])
         #with tf.Session() as sess:
             #init = tf.global_variables_initializer()
@@ -32,9 +33,7 @@ class Agent(object):
             #print "Agent %d Created with listen_weights: %s" % (self.num, str(sess.run(self.listen_weights)))
 
     def create_state_matrix(self, indim):
-        #self.state_weights = tf.get_variable(dtype=tf.float64, name=str(self.num) + "state" +str(self.id), shape=[self.numagents, self.statedim])
         self.state_weights = tf.get_variable(dtype=tf.float64, name=str(self.num) + "state" +str(self.id), shape=[indim, self.statedim])
 
     def create_out_matrix(self, indim):
-        #self.out_weights = tf.get_variable(dtype=tf.float64, name=str(self.num) + "out" +str(self.id), shape=[self.numagents, self.fanout])
         self.out_weights = tf.get_variable(dtype=tf.float64, name=str(self.num) + "out" +str(self.id), shape=[indim, self.fanout])

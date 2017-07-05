@@ -23,10 +23,11 @@ class Organization(object):
         self.envobsnoise = envobsnoise
         self.agents = []
         for i in range(num_agents):
-            self.agents.append(Agent(innoise, outnoise, i, fanout, statedim, batchsize, num_agents))
+            self.agents.append(Agent(innoise, outnoise, i, fanout, statedim, batchsize, num_agents, num_environment))
         self.environment = tf.random_normal([self.batchsize, num_environment],
                                             mean=0, stddev = envnoise, dtype=tf.float64)
-        self.build_org()
+        self.sess = tf.Session()
+        updates = self.build_org()
         self.objective  =  self.loss()
         self.learning_rate = tf.placeholder(tf.float64)
 
@@ -59,7 +60,6 @@ class Organization(object):
         self.start_learning_rate = learning_rates[optimizer]
         self.decay = decays[optimizer]
 
-        self.sess = tf.Session()
         if( tensorboard == None ):
             self.writer = None
         else:
@@ -67,19 +67,19 @@ class Organization(object):
         self.saver = tf.train.Saver()
         init = tf.global_variables_initializer()
         self.sess.run(init)
+        for update in updates:
+            self.sess.run(update)
 
     def build_org(self):
         self.build_agent_params()
-        self.build_wave()
+        return self.build_wave()
 
     def build_agent_params(self):
-        indim = self.num_environment
+        indim = self.num_environment + self.num_agents
         for ix, a in enumerate(self.agents):
-            #print "Agent %d gets indim=%d" % (ix, indim)
             a.create_in_vec(indim)
             a.create_state_matrix(indim)
             a.create_out_matrix(indim)
-            indim += a.fanout
 
     def build_wave(self):
         """
@@ -89,11 +89,17 @@ class Organization(object):
         """
         self.states = []
         self.outputs = []
+        updates = []
+
+        for a in self.agents:
+            self.outputs.append(a.output)
+
         for a in self.agents:
             envnoise = tf.random_normal([self.batchsize, self.num_environment], stddev=self.envobsnoise, dtype=tf.float64)
-            #envnoise = tf.random_uniform([self.batchsize, self.num_environment],
-                                            #minval = -self.envobsnoise, maxval= self.envobsnoise, dtype=tf.float64)
-            inenv = self.environment
+
+            # In our new design, inenv should be [1000, 5], and incomm should be [1000, 10]
+            # Therefore, indata will be [1000, 15], correct for our listen_weights configuration
+            inenv = self.environment # This is the size of the environment (5)
             incomm = None #?
             for inmsgs in self.outputs:
                 if incomm is None:
@@ -101,8 +107,7 @@ class Organization(object):
                 else:
                     incomm =  tf.concat([incomm, inmsgs], 1) # If already a message, then concat
             commnoise = tf.random_normal([self.batchsize, a.indim - self.num_environment], stddev=a.noiseinstd, dtype=tf.float64)
-            #commnoise = tf.random_uniform([self.batchsize, a.indim - self.num_environment],
-                                              #minval=a.noiseinstd, maxval=a.noiseinstd, dtype=tf.float64)
+
             # Noise on inputs
             if incomm is not None:
                 indata = tf.concat([inenv, incomm], 1) # batchsize x 
@@ -110,6 +115,15 @@ class Organization(object):
                 indata = inenv
             innoise = tf.concat([envnoise, commnoise], 1)
             #print innoise, indata, a.listen_weights
+
+            #print "Printing inenv shape (agent=%d):" % (a.num)
+            #print inenv.get_shape().as_list()
+            #print "Printing indata shape (agent=%d):" % (a.num)
+            #print indata.get_shape().as_list()
+            #print "Printing innoise shape (agent=%d):" % (a.num)
+            #print innoise.get_shape().as_list()
+            #print "Printing listen_weights shape (agent=%d):" % (a.num)
+            #print a.listen_weights.get_shape().as_list()
 
             # Add noise inversely-proportional to listening strength
             noisyin = indata  +  innoise/a.listen_weights
@@ -119,11 +133,9 @@ class Organization(object):
             a.state = state
             self.states.append(state)
 
-            outnoise = tf.random_normal([self.batchsize, a.fanout], stddev=a.noiseoutstd, dtype=tf.float64)
-            #outnoise = tf.random_uniform([self.batchsize, a.fanout], minval=a.noiseoutstd,maxval=a.noiseoutstd, dtype=tf.float64)
             prenoise = tf.matmul(noisyin, a.out_weights)
-            output = prenoise + outnoise
-            self.outputs.append(output)
+            updates.append(tf.assign_add(a.output, prenoise))
+        return updates
 
     def listening_cost(self, exponent=2):
         summed = [tf.reduce_sum(tf.abs(x.listen_weights))**exponent for x in self.agents]
