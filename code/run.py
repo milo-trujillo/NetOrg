@@ -17,7 +17,7 @@ parameters.append(
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 2, # Stddev on observing environment
-    "batchsize" : 1000, # Training Batch Size
+    "batchsize" : 100, # Training Batch Size
     "description" : "Baseline"}
 )
 
@@ -30,7 +30,7 @@ parameters.append(
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 5, # Stddev on observing environment
-    "batchsize" : 1000, # Training Batch Size
+    "batchsize" : 100, # Training Batch Size
     "description" : "Environment Expensive"}
 )
 
@@ -43,7 +43,7 @@ parameters.append(
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 2, # Stddev on observing environment
-    "batchsize" : 1000, # Training Batch Size
+    "batchsize" : 100, # Training Batch Size
     "desciption" : "Messages Expensive"}
 )
 
@@ -56,7 +56,7 @@ parameters.append(
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 2, # Stddev on observing environment
-    "batchsize" : 1000, # Training Batch Size
+    "batchsize" : 100, # Training Batch Size
     "description" : "Double Environment"}
 )
 
@@ -69,35 +69,8 @@ parameters.append(
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 2, # Stddev on observing environment
-    "batchsize" : 1000, # Training Batch Size
-    "description" : "Double Agents"}
-)
-
-parameters.append(
-    {"innoise" : 2, # Stddev on incomming messages
-    "outnoise" : 2, # Stddev on outgoing messages
-    "num_environment" : 5, # Num univariate environment nodes
-    "num_agents" : 10, # Number of Agents
-    "fanout" : 1, # Distinct messages an agent can say
-    "statedim" : 1, # Dimension of Agent State
-    "envnoise": 25, # Stddev of environment state
-    "envobsnoise" : 2, # Stddev on observing environment
-    "batchsize" : 10000, # Training Batch Size
-    "description" : "10x Batch Size"}
-)
-
-# 7: Baseline, but with 1/10th batch size
-parameters.append(
-    {"innoise" : 2, # Stddev on incomming messages
-    "outnoise" : 2, # Stddev on outgoing messages
-    "num_environment" : 5, # Num univariate environment nodes
-    "num_agents" : 10, # Number of Agents
-    "fanout" : 1, # Distinct messages an agent can say
-    "statedim" : 1, # Dimension of Agent State
-    "envnoise": 25, # Stddev of environment state
-    "envobsnoise" : 2, # Stddev on observing environment
     "batchsize" : 100, # Training Batch Size
-    "description" : "1/10th Batch Size"}
+    "description" : "Double Agents"}
 )
 
 if __name__ == "__main__":
@@ -112,16 +85,16 @@ if __name__ == "__main__":
         print " * Initializing network 1"
         orgA = network.Organization(optimizer="adadelta", **p)
         print " * Training network 1"
-        resA = orgA.train(iterations, iplot=False, verbose=False)
+        resA = orgA.train(iterations, iplot=False, verbose=True)
         print " * Initializing network 2"
         orgB = network.Organization(optimizer="rmsprop", **p)
         print " * Training network 2"
-        resB = orgB.train(iterations, iplot=False, verbose=False)
-        print " * Saving better network"
+        resB = orgB.train(iterations, iplot=False, verbose=True)
         if( resA.welfare > resB.welfare ):
             res = resA
         else:
             res = resB
+        print " * Saving better network (Welfare %f)" % res.welfare
         ax.plot(np.log(res.training_res), label=p["description"])
         res.graph_cytoscape("trial" + str(i+1) + ".graphml")
     ax.set_title("Trials")
