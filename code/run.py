@@ -18,6 +18,7 @@ parameters.append(
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 2, # Stddev on observing environment
     "batchsize" : 100, # Training Batch Size
+    "layers"      : 2, # Number of layers per agent
     "description" : "Baseline"}
 )
 
@@ -31,6 +32,7 @@ parameters.append(
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 5, # Stddev on observing environment
     "batchsize" : 100, # Training Batch Size
+    "layers"      : 2, # Number of layers per agent
     "description" : "Environment Expensive"}
 )
 
@@ -44,6 +46,7 @@ parameters.append(
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 2, # Stddev on observing environment
     "batchsize" : 100, # Training Batch Size
+    "layers"      : 2, # Number of layers per agent
     "description" : "Messages Expensive"}
 )
 
@@ -57,6 +60,7 @@ parameters.append(
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 2, # Stddev on observing environment
     "batchsize" : 100, # Training Batch Size
+    "layers"      : 2, # Number of layers per agent
     "description" : "Double Environment"}
 )
 
@@ -70,6 +74,7 @@ parameters.append(
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 2, # Stddev on observing environment
     "batchsize" : 100, # Training Batch Size
+    "layers"      : 2, # Number of layers per agent
     "description" : "Double Agents"}
 )
 

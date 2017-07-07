@@ -14,15 +14,16 @@ plt.ion()
 class Organization(object):
     def __init__(self, num_environment, num_agents, innoise,
                      outnoise, fanout, statedim, envnoise, envobsnoise,
-                     batchsize, optimizer, randomSeed=False, tensorboard=None, **kwargs):
+                     batchsize, optimizer, layers, randomSeed=False, tensorboard=None, **kwargs):
         if( randomSeed == False ):
             tf.set_random_seed(634)
         self.num_environment = num_environment
         self.num_agents = num_agents
         self.batchsize = batchsize
         self.envobsnoise = envobsnoise
+        self.layers = layers
         self.agents = []
-        for i in range(num_agents * 2):
+        for i in range(num_agents * self.layers):
             self.agents.append(Agent(innoise, outnoise, i, fanout, statedim, batchsize, num_agents, num_environment))
         self.environment = tf.random_normal([self.batchsize, num_environment],
                                             mean=0, stddev = envnoise, dtype=tf.float64)
@@ -74,17 +75,17 @@ class Organization(object):
 
     def build_agent_params(self):
         indim = self.num_environment
-        first_wave = []
+        created = []
         for i, a in enumerate(self.agents):
+            created.append(a)
             # First wave
             if( i < self.num_agents ):
-                first_wave.append(a)
                 a.create_in_vec(indim)
                 a.create_state_matrix(indim)
                 a.create_out_matrix(indim)
-            # Second wave
+            # Second wave and up
             else:
-                old_version = first_wave.pop(0)
+                old_version = created.pop(0)
                 a.set_predecessor(old_version)
                 a.create_in_vec(self.num_agents)
                 a.create_state_matrix(self.num_agents + old_version.indim)
@@ -126,17 +127,20 @@ class Organization(object):
                 We're only listening to the first wave nodes (no environment),
                 so can skip all the inenv and envnoise steps
                 '''
-                indata = tf.concat(self.outputs[0:self.num_agents], 1)
+                loadLayerStart = ((a.num / self.num_agents) - 1) * self.num_agents
+                loadLayerEnd = (a.num / self.num_agents) * self.num_agents
+                indata = tf.concat(self.outputs[loadLayerStart:loadLayerEnd], 1)
                 commnoise = tf.random_normal([self.batchsize, self.num_agents], stddev=a.noiseinstd, dtype=tf.float64)
                 innoise = commnoise
 
             # Add noise inversely-proportional to listening strength
             noisyin = indata + innoise/a.listen_weights
-            a.set_received_messages(noisyin)
 
             # Since listen weights is 1xin we get row wise division.
             if( a.predecessor != None ):
                 noisyin = tf.concat([a.predecessor.received_messages, noisyin], 1)
+            a.set_received_messages(noisyin)
+
             state = tf.matmul(noisyin, a.state_weights)
             a.state = state
             self.states.append(state)
@@ -165,8 +169,9 @@ class Organization(object):
     # Gets the difference^2 of how far each agent is from real avg of variables
     # Note: We only look at the upper layer (A0_1, not A0_0) for determining welfare
     def loss(self, exponent=2):
+        lastLayer = self.num_agents * (self.layers - 1)
         realValue = tf.reduce_mean(self.environment, 1, keep_dims=True)
-        differences = [tf.reduce_mean((realValue - a.state)**exponent) for a in self.agents[self.num_agents:]]
+        differences = [tf.reduce_mean((realValue - a.state)**exponent) for a in self.agents[lastLayer:]]
         differenceSum = tf.add_n(differences)
         cost = self.listening_cost() + self.speaking_cost()
         loss = differenceSum + cost
@@ -291,8 +296,12 @@ class Results(object):
             # For each node, weights will be zero if the edge should be ignored
             # and otherwise represent the cost of the edge
             for dest, weight in enumerate(agent.flatten()):
+                # We need to offset the other end of the arrow, because agents
+                # after layer0 don't listen to env, and only listen to the layer
+                # immediately below them
                 if( layer > 0 ):
                     dest += self.num_env
+                    dest += (self.num_agents * (layer-1))
                 if( abs(weight) > 0 ):
                     G.add_edge(int(dest), nodenum, width=float(weight), weight=float(abs(weight)))
         nx.write_graphml(G, filename)
