@@ -44,7 +44,7 @@ parameters.append(
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 2, # Stddev on observing environment
     "batchsize" : 100, # Training Batch Size
-    "desciption" : "Messages Expensive"}
+    "description" : "Messages Expensive"}
 )
 
 parameters.append(
@@ -96,7 +96,8 @@ if __name__ == "__main__":
             res = resB
         print " * Saving better network (Welfare %f)" % res.welfare
         ax.plot(np.log(res.training_res), label=p["description"])
-        res.graph_cytoscape("trial" + str(i+1) + ".graphml")
+        filename = "trial%d_welfare_%f.graphml" % (i+1, res.welfare)
+        res.graph_cytoscape(filename)
     ax.set_title("Trials")
     ax.set_xlabel("Training Epoch")
     ax.set_ylabel("Log(Welfare)")
