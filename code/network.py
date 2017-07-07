@@ -74,11 +74,21 @@ class Organization(object):
 
     def build_agent_params(self):
         indim = self.num_environment
+        first_wave = []
         for i, a in enumerate(self.agents):
-            #print "Agent %d gets indim=%d" % (i, indim)
+            # First wave
+            if( i < self.num_agents ):
+                first_wave.append(a)
+                a.create_state_matrix(indim)
+                a.create_out_matrix(indim)
+            # Second wave
+            else:
+                old_version = first_wave.pop(0)
+                a.set_predecessor(old_version)
+                a.create_state_matrix(indim + old_version.indim)
+                a.create_out_matrix(indim + old_version.indim)
             a.create_in_vec(indim)
-            a.create_state_matrix(indim)
-            a.create_out_matrix(indim)
+            #print "Agent %d gets indim=%d" % (i, indim)
             indim += a.fanout
 
     def build_wave(self):
@@ -110,9 +120,12 @@ class Organization(object):
             #print innoise, indata, a.listen_weights
 
             # Add noise inversely-proportional to listening strength
-            noisyin = indata  +  innoise/a.listen_weights
+            noisyin = indata + innoise/a.listen_weights
+            a.set_received_messages(noisyin)
 
             # Since listen weights is 1xin we get row wise division.
+            if( a.predecessor != None ):
+                noisyin = tf.concat([a.predecessor.received_messages, noisyin], 1)
             state = tf.matmul(noisyin, a.state_weights)
             a.state = state
             self.states.append(state)
