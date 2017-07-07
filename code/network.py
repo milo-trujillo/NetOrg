@@ -79,15 +79,16 @@ class Organization(object):
             # First wave
             if( i < self.num_agents ):
                 first_wave.append(a)
+                a.create_in_vec(indim)
                 a.create_state_matrix(indim)
                 a.create_out_matrix(indim)
             # Second wave
             else:
                 old_version = first_wave.pop(0)
                 a.set_predecessor(old_version)
-                a.create_state_matrix(indim + old_version.indim)
-                a.create_out_matrix(indim + old_version.indim)
-            a.create_in_vec(indim)
+                a.create_in_vec(self.num_agents)
+                a.create_state_matrix(self.num_agents + old_version.indim)
+                a.create_out_matrix(self.num_agents + old_version.indim)
             #print "Agent %d gets indim=%d" % (i, indim)
             indim += a.fanout
 
@@ -103,21 +104,31 @@ class Organization(object):
             envnoise = tf.random_normal([self.batchsize, self.num_environment], stddev=self.envobsnoise, dtype=tf.float64)
             inenv = self.environment
 
-            incomm = None #?
-            for inum, inmsgs in enumerate(self.outputs):
-                if incomm is None:
-                    incomm = inmsgs # Stays None if inmsgs blank, otherwise becomes inmsgs
-                else:
-                    incomm =  tf.concat([incomm, inmsgs], 1) # If already a message, then concat
-            commnoise = tf.random_normal([self.batchsize, a.indim - self.num_environment], stddev=a.noiseinstd, dtype=tf.float64)
+            incomm = None
 
-            # Noise on inputs
-            if incomm is not None:
-                indata = tf.concat([inenv, incomm], 1) # batchsize x 
+            # First wave
+            if( a.predecessor == None ):
+                for inum, inmsgs in enumerate(self.outputs):
+                    if incomm is None:
+                        incomm = inmsgs # Stays None if inmsgs blank, otherwise becomes inmsgs
+                    else:
+                        incomm =  tf.concat([incomm, inmsgs], 1) # If already a message, then concat
+                commnoise = tf.random_normal([self.batchsize, a.indim - self.num_environment], stddev=a.noiseinstd, dtype=tf.float64)
+                # Add environment to incomming messages, and envnoise to commnoise
+                if incomm is not None:
+                    indata = tf.concat([inenv, incomm], 1) # batchsize x 
+                else:
+                    indata = inenv
+                innoise = tf.concat([envnoise, commnoise], 1)
+            # Second wave+
             else:
-                indata = inenv
-            innoise = tf.concat([envnoise, commnoise], 1)
-            #print innoise, indata, a.listen_weights
+                '''
+                We're only listening to the first wave nodes (no environment),
+                so can skip all the inenv and envnoise steps
+                '''
+                indata = tf.concat(self.outputs[0:self.num_agents], 1)
+                commnoise = tf.random_normal([self.batchsize, self.num_agents], stddev=a.noiseinstd, dtype=tf.float64)
+                innoise = commnoise
 
             # Add noise inversely-proportional to listening strength
             noisyin = indata + innoise/a.listen_weights
@@ -211,15 +222,16 @@ class Organization(object):
             print "Listen_params now set to: " + str(listen_params)
         if( self.writer != None ):
             self.writer.close()
-        return Results(training_res, listen_params, self.num_agents, welfare)
+        return Results(training_res, listen_params, self.num_agents, self.num_environment, welfare)
     
 class Results(object):
-    def __init__(self, training_res, listen_params, num_agents, welfare):
+    def __init__(self, training_res, listen_params, num_agents, num_env, welfare):
         self.training_res = training_res
         self.listen_params = listen_params
         self.get_trimmed_listen_params()
         self.welfare = welfare
         self.num_agents = num_agents
+        self.num_env = num_env
 
     def get_trimmed_listen_params(self, cutoff=.1):
         self.trimmed = []
@@ -273,12 +285,14 @@ class Results(object):
         for aix, agent in enumerate(self.trimmed):
             nodenum = int(numenv + aix)
             prefix = aix % self.num_agents
-            suffix = aix / self.num_agents
-            n = "A%d_%d" % (prefix, suffix)
+            layer = aix / self.num_agents
+            n = "A%d_%d" % (prefix, layer)
             G.add_node(nodenum, color='r', name=n, category="agent")
             # For each node, weights will be zero if the edge should be ignored
             # and otherwise represent the cost of the edge
             for dest, weight in enumerate(agent.flatten()):
+                if( layer > 0 ):
+                    dest += self.num_env
                 if( abs(weight) > 0 ):
                     G.add_edge(int(dest), nodenum, width=float(weight), weight=float(abs(weight)))
         nx.write_graphml(G, filename)
