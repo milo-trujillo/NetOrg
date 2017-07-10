@@ -22,6 +22,8 @@ class Agent(object):
         self.batchsize = batchsize
         self.numagents = numagents
         self.numenv = numenv
+        self.predecessor = None
+        self.received_messages = [None * (self.num_agents + 1)]
 
     def create_in_vec(self, indim):
         self.indim = indim
@@ -52,6 +54,12 @@ class Agent(object):
             #init = tf.global_variables_initializer()
             #sess.run(init)
             #print "Agent %d Created with state matrix: %s" % (self.num, str(sess.run(self.state_weights[0])))
+
+    def set_predecessor(self, agent):
+        self.predecessor = agent
+
+    def set_received_messages(self, iteration, msgs):
+        self.received_messages[i] = msgs
 
     def create_out_matrix(self, indim):
         #self.out_weights = tf.get_variable(dtype=tf.float64, name=str(self.num) + "out" +str(self.id), shape=[self.numagents, self.fanout])
