@@ -23,6 +23,7 @@ class Organization(object):
         self.num_agents = num_agents
         self.batchsize = batchsize
         self.envobsnoise = envobsnoise
+        self.layers = layers
         self.agents = []
         for i in range(num_agents * layers):
             self.agents.append(Agent(innoise, outnoise, i, fanout, statedim, batchsize, num_agents, num_environment))
@@ -131,16 +132,15 @@ class Organization(object):
                     '''
                     loadLayerStart = ((a.num / self.num_agents) - 1) * self.num_agents
                     loadLayerEnd = (a.num / self.num_agents) * self.num_agents
-                    indata = tf.concat(self.outputs[loadLayerStart:loadLayerEnd], 1)
+                    indata = tf.concat(self.outputs[i][loadLayerStart:loadLayerEnd], 1)
                     commnoise = tf.random_normal([self.batchsize, self.num_agents], stddev=a.noiseinstd, dtype=tf.float64)
                     innoise = commnoise
 
                 # Add noise inversely-proportional to listening strength
-                noise = innoise/a.listen_weights[i]
-                noisyin.append(indata  +  noise)
+                noisyin.append(indata + innoise/a.listen_weights[i])
                 if( a.predecessor != None ):
-                    noisyin = tf.concat([a.predecessor.received_messages[i], noisyin], 1)
-                a.set_received_messages(i, noisyin)
+                    noisyin[i] = tf.concat([a.predecessor.received_messages[i], noisyin[i]], 1)
+                a.set_received_messages(i, noisyin[i])
 
                 # Since listen weights is 1xin we get row wise division.
                 state.append(tf.matmul(noisyin[i], a.state_weights[i]))

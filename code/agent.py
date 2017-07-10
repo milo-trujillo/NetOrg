@@ -59,7 +59,7 @@ class Agent(object):
         self.predecessor = agent
 
     def set_received_messages(self, iteration, msgs):
-        self.received_messages[i] = msgs
+        self.received_messages[iteration] = msgs
 
     def create_out_matrix(self, indim):
         #self.out_weights = tf.get_variable(dtype=tf.float64, name=str(self.num) + "out" +str(self.id), shape=[self.numagents, self.fanout])
