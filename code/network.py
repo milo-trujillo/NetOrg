@@ -155,12 +155,18 @@ class Organization(object):
         totalc = tf.add_n(summed)
         return totalc
 
-    # Gets the difference^2 of how far each agent is from real avg of variables
-    # Note: We only look at the upper layer (A0_1, not A0_0) for determining welfare
+    '''
+    In fractured_goals, each node is only responsible for knowing about a subset of the environment
+    Specifically, each node is responsible for n%env, n+1%env, and n+2%env
+    '''
     def loss(self, exponent=2):
         lastLayer = self.num_agents * (self.layers - 1)
-        realValue = tf.reduce_mean(self.environment, 1, keep_dims=True)
-        differences = [tf.reduce_mean((realValue - a.state)**exponent) for a in self.agents[lastLayer:]]
+        env = self.num_environment
+        differences = []
+        for a in self.agents[lastLayer:]:
+            goals = [a.num % env, (a.num + 1) % env, (a.num + 2) % env]
+            realValue = tf.reduce_mean(tf.gather(self.environment, goals))
+            differences.append(tf.reduce_mean(realValue - a.state)**exponent)
         differenceSum = tf.add_n(differences)
         cost = self.listening_cost() + self.speaking_cost()
         loss = differenceSum + cost
