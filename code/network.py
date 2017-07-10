@@ -14,16 +14,17 @@ plt.ion()
 class Organization(object):
     def __init__(self, num_environment, num_agents, innoise,
                      outnoise, fanout, statedim, envnoise, envobsnoise,
-                     batchsize, optimizer, randomSeed=False, tensorboard=None, **kwargs):
+                     batchsize, optimizer, layers, randomSeed=False, tensorboard=None, **kwargs):
         if( randomSeed == False ):
             tf.set_random_seed(634)
         self.num_environment = num_environment
         self.num_agents = num_agents
         self.batchsize = batchsize
         self.envobsnoise = envobsnoise
+        self.layers = layers
         self.agents = []
-        for i in range(num_agents):
-            self.agents.append(Agent(innoise, outnoise, i, fanout, statedim, batchsize, num_agents))
+        for i in range(num_agents * self.layers):
+            self.agents.append(Agent(innoise, outnoise, i, fanout, statedim, batchsize, num_agents, num_environment))
         self.environment = tf.random_normal([self.batchsize, num_environment],
                                             mean=0, stddev = envnoise, dtype=tf.float64)
         self.build_org()
@@ -74,11 +75,22 @@ class Organization(object):
 
     def build_agent_params(self):
         indim = self.num_environment
-        for ix, a in enumerate(self.agents):
-            #print "Agent %d gets indim=%d" % (ix, indim)
-            a.create_in_vec(indim)
-            a.create_state_matrix(indim)
-            a.create_out_matrix(indim)
+        created = []
+        for i, a in enumerate(self.agents):
+            created.append(a)
+            # First wave
+            if( i < self.num_agents ):
+                a.create_in_vec(indim)
+                a.create_state_matrix(indim)
+                a.create_out_matrix(indim)
+            # Second wave and up
+            else:
+                old_version = created.pop(0)
+                a.set_predecessor(old_version)
+                a.create_in_vec(self.num_agents)
+                a.create_state_matrix(self.num_agents + old_version.indim)
+                a.create_out_matrix(self.num_agents + old_version.indim)
+            #print "Agent %d gets indim=%d" % (i, indim)
             indim += a.fanout
 
     def build_wave(self):
@@ -89,44 +101,63 @@ class Organization(object):
         """
         self.states = []
         self.outputs = []
-        for a in self.agents:
+        for i, a in enumerate(self.agents):
             envnoise = tf.random_normal([self.batchsize, self.num_environment], stddev=self.envobsnoise, dtype=tf.float64)
-            #envnoise = tf.random_uniform([self.batchsize, self.num_environment],
-                                            #minval = -self.envobsnoise, maxval= self.envobsnoise, dtype=tf.float64)
             inenv = self.environment
-            incomm = None #?
-            for inmsgs in self.outputs:
-                if incomm is None:
-                    incomm = inmsgs # Stays None if inmsgs blank, otherwise becomes inmsgs
+
+            incomm = None
+
+            # First wave
+            if( a.predecessor == None ):
+                for inum, inmsgs in enumerate(self.outputs):
+                    if incomm is None:
+                        incomm = inmsgs # Stays None if inmsgs blank, otherwise becomes inmsgs
+                    else:
+                        incomm =  tf.concat([incomm, inmsgs], 1) # If already a message, then concat
+                commnoise = tf.random_normal([self.batchsize, a.indim - self.num_environment], stddev=a.noiseinstd, dtype=tf.float64)
+                # Add environment to incomming messages, and envnoise to commnoise
+                if incomm is not None:
+                    indata = tf.concat([inenv, incomm], 1) # batchsize x 
                 else:
-                    incomm =  tf.concat([incomm, inmsgs], 1) # If already a message, then concat
-            commnoise = tf.random_normal([self.batchsize, a.indim - self.num_environment], stddev=a.noiseinstd, dtype=tf.float64)
-            #commnoise = tf.random_uniform([self.batchsize, a.indim - self.num_environment],
-                                              #minval=a.noiseinstd, maxval=a.noiseinstd, dtype=tf.float64)
-            # Noise on inputs
-            if incomm is not None:
-                indata = tf.concat([inenv, incomm], 1) # batchsize x 
+                    indata = inenv
+                innoise = tf.concat([envnoise, commnoise], 1)
+            # Second wave+
             else:
-                indata = inenv
-            innoise = tf.concat([envnoise, commnoise], 1)
-            #print innoise, indata, a.listen_weights
+                '''
+                We're only listening to the first wave nodes (no environment),
+                so can skip all the inenv and envnoise steps
+                '''
+                loadLayerStart = ((a.num / self.num_agents) - 1) * self.num_agents
+                loadLayerEnd = (a.num / self.num_agents) * self.num_agents
+                indata = tf.concat(self.outputs[loadLayerStart:loadLayerEnd], 1)
+                commnoise = tf.random_normal([self.batchsize, self.num_agents], stddev=a.noiseinstd, dtype=tf.float64)
+                innoise = commnoise
 
             # Add noise inversely-proportional to listening strength
-            noisyin = indata  +  innoise/a.listen_weights
+            noisyin = indata + innoise/a.listen_weights
 
             # Since listen weights is 1xin we get row wise division.
+            if( a.predecessor != None ):
+                noisyin = tf.concat([a.predecessor.received_messages, noisyin], 1)
+            a.set_received_messages(noisyin)
+
             state = tf.matmul(noisyin, a.state_weights)
             a.state = state
             self.states.append(state)
 
             outnoise = tf.random_normal([self.batchsize, a.fanout], stddev=a.noiseoutstd, dtype=tf.float64)
-            #outnoise = tf.random_uniform([self.batchsize, a.fanout], minval=a.noiseoutstd,maxval=a.noiseoutstd, dtype=tf.float64)
             prenoise = tf.matmul(noisyin, a.out_weights)
             output = prenoise + outnoise
             self.outputs.append(output)
+            # output is a vector with dimensions [1, batchsize]
+            #with tf.Session() as sess:
+                #init = tf.global_variables_initializer()
+                #sess.run(init)
+                #res = sess.run(output)
+                #print "Appending output for agent " + str(i) + ": " + str(res)
 
     def listening_cost(self, exponent=2):
-        summed = [tf.reduce_sum(tf.abs(x.listen_weights))**exponent for x in self.agents]
+        summed = [x.listen_cost(exponent) for x in self.agents]
         totalc = tf.add_n(summed)
         return totalc
 
@@ -136,34 +167,15 @@ class Organization(object):
         return totalc
 
     # Gets the difference^2 of how far each agent is from real avg of variables
+    # Note: We only look at the upper layer (A0_1, not A0_0) for determining welfare
     def loss(self, exponent=2):
+        lastLayer = self.num_agents * (self.layers - 1)
         realValue = tf.reduce_mean(self.environment, 1, keep_dims=True)
-        differences = [tf.reduce_mean((realValue - a.state)**exponent) for a in self.agents]
+        differences = [tf.reduce_mean((realValue - a.state)**exponent) for a in self.agents[lastLayer:]]
         differenceSum = tf.add_n(differences)
         cost = self.listening_cost() + self.speaking_cost()
         loss = differenceSum + cost
         return loss
-
-    # Gets avg loss, if we turn off one node at a time (should emphasize redundancy)
-    # This is tricky, since we have to describe it functionally, not iteratively,
-    # since tensorflow variables are evaluated at a later point
-    def ruggedLoss(self, exponent=2):
-        cachefilename = "/tmp/" + str(os.getpid()) + ".checkpoint"
-        realValue = tf.reduce_mean(self.environment, 1, keep_dims=True)
-        cost = self.listening_cost() + self.speaking_cost()
-        saver.save(self.sess, cachefilename)
-        for i in range(0, self.num_agents):
-            # Make a copy of the graph so we don't blow up important bits
-            g = tf.Graph()
-            with tf.Session(graph=g) as s:
-                saver.restore(s, cachefilename)
-                a = self.agents[i]
-                new_weights = tf.zeros_like(a.out_weights)
-                s.run(new_weights)
-                differences = [tf.reduce_mean((realValue - a.state)**exponent) for a in self.agents]
-                differences = tf.add_n(differences)
-                #loss = 
-        loss = avg_differences + cost
 
     def train(self, niters, lrinit=None, iplot=False, verbose=False):
         if( lrinit == None ):
@@ -188,14 +200,11 @@ class Organization(object):
                 lr = float(lrinit) / (1 + i*self.decay) # Learn less over time
             self.sess.run(self.optimize, feed_dict={self.learning_rate:lr})
 
-
-            #for a in self.agents:
-                #a.normalize()
-            listen_params = self.sess.run([a.listen_weights for a in self.agents])
-            output_params = self.sess.run([a.out_weights for a in self.agents])
             if verbose:
+                listen_params = self.sess.run([a.listen_weights for a in self.agents])
+                output_params = self.sess.run([a.out_weights for a in self.agents])
                 print "Listen_params now set to: " + str(listen_params)
-                print "Output_params now set to: " + str(output_params)
+                #print "Output_params now set to: " + str(output_params)
 
             # Prints the agent's current strategy at each step so we can see how well it's doing
             #strat = self.sess.run(self.agents[0].listen_weights)
@@ -218,14 +227,16 @@ class Organization(object):
             print "Listen_params now set to: " + str(listen_params)
         if( self.writer != None ):
             self.writer.close()
-        return Results(training_res, listen_params, welfare)
+        return Results(training_res, listen_params, self.num_agents, self.num_environment, welfare)
     
 class Results(object):
-    def __init__(self, training_res, listen_params, welfare):
+    def __init__(self, training_res, listen_params, num_agents, num_env, welfare):
         self.training_res = training_res
         self.listen_params = listen_params
         self.get_trimmed_listen_params()
         self.welfare = welfare
+        self.num_agents = num_agents
+        self.num_env = num_env
 
     def get_trimmed_listen_params(self, cutoff=.1):
         self.trimmed = []
@@ -278,10 +289,19 @@ class Results(object):
             G.add_node(i, color="b", name="E" + str(i), category="environment")
         for aix, agent in enumerate(self.trimmed):
             nodenum = int(numenv + aix)
-            G.add_node(nodenum, color='r', name="A" + str(aix), category="agent")
+            prefix = aix % self.num_agents
+            layer = aix / self.num_agents
+            n = "A%d_%d" % (prefix, layer)
+            G.add_node(nodenum, color='r', name=n, category="agent")
             # For each node, weights will be zero if the edge should be ignored
             # and otherwise represent the cost of the edge
             for dest, weight in enumerate(agent.flatten()):
+                # We need to offset the other end of the arrow, because agents
+                # after layer0 don't listen to env, and only listen to the layer
+                # immediately below them
+                if( layer > 0 ):
+                    dest += self.num_env
+                    dest += (self.num_agents * (layer-1))
                 if( abs(weight) > 0 ):
                     G.add_edge(int(dest), nodenum, width=float(weight), weight=float(abs(weight)))
         nx.write_graphml(G, filename)
