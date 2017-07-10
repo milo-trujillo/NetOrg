@@ -74,15 +74,14 @@ class Organization(object):
         self.build_wave()
 
     def build_agent_params(self):
-        indim = self.num_environment
         created = []
         for i, a in enumerate(self.agents):
             created.append(a)
             # First wave
             if( i < self.num_agents ):
-                a.create_in_vec(indim)
-                a.create_state_matrix(indim)
-                a.create_out_matrix(indim)
+                a.create_in_vec(self.num_environment)
+                a.create_state_matrix(self.num_environment)
+                a.create_out_matrix(self.num_environment)
             # Second wave and up
             else:
                 old_version = created.pop(0)
@@ -90,8 +89,6 @@ class Organization(object):
                 a.create_in_vec(self.num_agents)
                 a.create_state_matrix(self.num_agents + old_version.indim)
                 a.create_out_matrix(self.num_agents + old_version.indim)
-            #print "Agent %d gets indim=%d" % (i, indim)
-            indim += a.fanout
 
     def build_wave(self):
         """
@@ -109,18 +106,8 @@ class Organization(object):
 
             # First wave
             if( a.predecessor == None ):
-                for inum, inmsgs in enumerate(self.outputs):
-                    if incomm is None:
-                        incomm = inmsgs # Stays None if inmsgs blank, otherwise becomes inmsgs
-                    else:
-                        incomm =  tf.concat([incomm, inmsgs], 1) # If already a message, then concat
-                commnoise = tf.random_normal([self.batchsize, a.indim - self.num_environment], stddev=a.noiseinstd, dtype=tf.float64)
-                # Add environment to incomming messages, and envnoise to commnoise
-                if incomm is not None:
-                    indata = tf.concat([inenv, incomm], 1) # batchsize x 
-                else:
-                    indata = inenv
-                innoise = tf.concat([envnoise, commnoise], 1)
+                indata = inenv
+                innoise = envnoise
             # Second wave+
             else:
                 '''
