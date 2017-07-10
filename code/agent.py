@@ -38,8 +38,29 @@ class Agent(object):
             #sess.run(init)
             #print "Agent %d Created with listen_weights: %s" % (self.num, str(sess.run(self.listen_weights)))
 
+    def get_listen_weights(self):
+        if( self.predecessor == None ):
+            return tf.reduce_sum(tf.abs(self.listen_weights))
+        else:
+            return tf.add(tf.reduce_sum(tf.abs(self.listen_weights)), self.predecessor.get_listen_weights())
+
+    def get_out_weights(self):
+        if( self.predecessor == None ):
+            return tf.reduce_sum(tf.abs(self.out_weights))
+        else:
+            return tf.add(tf.reduce_sum(tf.abs(self.out_weights)), self.predecessor.get_out_weights())
+
     def listen_cost(self, exponent):
-        return tf.reduce_sum(tf.abs(self.listen_weights))**exponent
+        if( self.predecessor == None ):
+        	return tf.reduce_sum(tf.abs(self.listen_weights))**exponent
+        else:
+            return tf.add(tf.reduce_sum(tf.abs(self.listen_weights)), self.predecessor.get_listen_weights())**exponent
+
+    def speaking_cost(self, exponent):
+        if( self.predecessor == None ):
+        	return tf.reduce_sum(tf.abs(self.out_weights))**exponent
+        else:
+            return tf.add(tf.reduce_sum(tf.abs(self.out_weights)), self.predecessor.get_out_weights())**exponent
 
     def create_state_matrix(self, indim):
         self.indim = indim
