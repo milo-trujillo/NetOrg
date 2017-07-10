@@ -23,7 +23,7 @@ class Agent(object):
         self.numagents = numagents
         self.numenv = numenv
         self.predecessor = None
-        self.received_messages = [None * (self.num_agents + 1)]
+        self.received_messages = [None for x in range(self.numagents + 1)]
 
     def create_in_vec(self, indim):
         self.indim = indim
