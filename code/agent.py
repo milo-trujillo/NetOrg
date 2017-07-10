@@ -38,11 +38,11 @@ class Agent(object):
             #sess.run(init)
             #print "Agent %d Created with listen_weights: %s" % (self.num, str(sess.run(self.listen_weights)))
 
-    def get_listen_weights(self):
+    def get_listen_weights(self, env_exponent_cost):
         if( self.predecessor == None ):
-            return tf.reduce_sum(tf.abs(self.listen_weights))
+            return tf.reduce_sum(tf.abs(self.listen_weights))**env_exponent_cost
         else:
-            return tf.add(tf.reduce_sum(tf.abs(self.listen_weights)), self.predecessor.get_listen_weights())
+            return tf.add(tf.reduce_sum(tf.abs(self.listen_weights)), self.predecessor.get_listen_weights(env_exponent_cost))
 
     def get_out_weights(self):
         if( self.predecessor == None ):
@@ -50,11 +50,11 @@ class Agent(object):
         else:
             return tf.add(tf.reduce_sum(tf.abs(self.out_weights)), self.predecessor.get_out_weights())
 
-    def listen_cost(self, exponent):
+    def listen_cost(self, exponent, env_exponent_cost):
         if( self.predecessor == None ):
-        	return tf.reduce_sum(tf.abs(self.listen_weights))**exponent
+            return (tf.reduce_sum(tf.abs(self.listen_weights))**env_exponent_cost)**exponent
         else:
-            return tf.add(tf.reduce_sum(tf.abs(self.listen_weights)), self.predecessor.get_listen_weights())**exponent
+            return tf.add(tf.reduce_sum(tf.abs(self.listen_weights)), self.predecessor.get_listen_weights(env_exponent_cost))**exponent
 
     def speaking_cost(self, exponent):
         if( self.predecessor == None ):

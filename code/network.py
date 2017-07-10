@@ -143,9 +143,9 @@ class Organization(object):
                 #res = sess.run(output)
                 #print "Appending output for agent " + str(i) + ": " + str(res)
 
-    def listening_cost(self, exponent=2):
+    def listening_cost(self, exponent=2, env_exponent=3):
         lastLayer = self.num_agents * (self.layers - 1)
-        summed = [x.listen_cost(exponent) for x in self.agents[lastLayer:]]
+        summed = [x.listen_cost(exponent, env_exponent) for x in self.agents[lastLayer:]]
         totalc = tf.add_n(summed)
         return totalc
 
