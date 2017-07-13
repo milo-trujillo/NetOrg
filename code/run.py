@@ -17,7 +17,7 @@ parameters.append(
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 2, # Stddev on observing environment
-    "batchsize" : 100, # Training Batch Size
+    "batchsize" : 1000, # Training Batch Size
     "layers"      : 3, # Number of layers per agent
     "description" : "Baseline"}
 )
@@ -31,7 +31,7 @@ parameters.append(
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 5, # Stddev on observing environment
-    "batchsize" : 100, # Training Batch Size
+    "batchsize" : 1000, # Training Batch Size
     "layers"      : 3, # Number of layers per agent
     "description" : "Environment Expensive"}
 )
@@ -45,7 +45,7 @@ parameters.append(
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 2, # Stddev on observing environment
-    "batchsize" : 100, # Training Batch Size
+    "batchsize" : 1000, # Training Batch Size
     "layers"      : 3, # Number of layers per agent
     "description" : "Messages Expensive"}
 )
@@ -59,7 +59,7 @@ parameters.append(
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 2, # Stddev on observing environment
-    "batchsize" : 100, # Training Batch Size
+    "batchsize" : 1000, # Training Batch Size
     "layers"      : 3, # Number of layers per agent
     "description" : "Double Environment"}
 )
@@ -73,7 +73,7 @@ parameters.append(
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 2, # Stddev on observing environment
-    "batchsize" : 100, # Training Batch Size
+    "batchsize" : 1000, # Training Batch Size
     "layers"      : 3, # Number of layers per agent
     "description" : "Double Agents"}
 )
@@ -84,21 +84,26 @@ if __name__ == "__main__":
     ax = fig.add_subplot(1,1,1)
     res = None
     iterations = 3000
-    for i in range(len(parameters)):
+    for i in range(10):
         p = parameters[i]
-        print "Running trial %d (%s)" % (i+1, p["description"])
-        print " * Initializing network 1"
-        orgA = network.Organization(optimizer="adadelta", **p)
-        print " * Training network 1"
-        resA = orgA.train(iterations, iplot=False, verbose=True)
-        print " * Initializing network 2"
-        orgB = network.Organization(optimizer="rmsprop", **p)
-        print " * Training network 2"
-        resB = orgB.train(iterations, iplot=False, verbose=True)
-        if( resA.welfare > resB.welfare ):
-            res = resA
-        else:
-            res = resB
+        bestWelfare = 1000
+        for j in range(10): # Priming to 500 iterations
+            print "Pre-training trial %d (subtrial %d)" % (i+1, j+1)
+            print " * Initializing network 1"
+            orgA = network.Organization(optimizer="adadelta", **p)
+            print " * Training network 1"
+            resA = orgA.train(iterations, iplot=False, verbose=False, earlyHalt=bestWelfare)
+            if( resA.welfare > bestWelfare ):
+                bestWelfare = resA.welfare
+            print " * Initializing network 2"
+            orgB = network.Organization(optimizer="rmsprop", **p)
+            print " * Training network 2"
+            resB = orgB.train(iterations, iplot=False, verbose=False)
+            if( resB.welfare > bestWelfare ):
+                bestWelfare = resB.welfare
+        print "Main training trial %d (%s)" % (i+1, p.description)
+        org = network.Organization(optimizer="adadelta", restore="model.checkpoint", **p)
+        res = org.train(iterations, iplot=False, verbose=True)
         print " * Saving better network (Welfare %f)" % res.welfare
         ax.plot(np.log(res.training_res), label=p["description"])
         filename = "trial%d_welfare_%f.graphml" % (i+1, res.welfare)

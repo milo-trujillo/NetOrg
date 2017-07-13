@@ -14,7 +14,8 @@ plt.ion()
 class Organization(object):
     def __init__(self, num_environment, num_agents, innoise,
                      outnoise, fanout, statedim, envnoise, envobsnoise,
-                     batchsize, optimizer, layers, randomSeed=False, tensorboard=None, **kwargs):
+                     batchsize, optimizer, layers, randomSeed=False, tensorboard=None, restore=None, 
+                    **kwargs):
         if( randomSeed == False ):
             tf.set_random_seed(634)
         self.num_environment = num_environment
@@ -68,6 +69,8 @@ class Organization(object):
         self.saver = tf.train.Saver()
         init = tf.global_variables_initializer()
         self.sess.run(init)
+        if( restore != None ):
+            self.saver.restore(self.sess, restore)
 
     def build_org(self):
         self.build_agent_params()
@@ -166,7 +169,7 @@ class Organization(object):
         loss = differenceSum + cost
         return loss
 
-    def train(self, niters, lrinit=None, iplot=False, verbose=False):
+    def train(self, niters, lrinit=None, iplot=False, verbose=False, earlyHalt=None):
         if( lrinit == None ):
             lrinit = self.start_learning_rate
         if iplot:
@@ -208,6 +211,12 @@ class Organization(object):
             if (i%50==0) and iplot:
                 line.set_data(np.arange(len(training_res)), np.log(training_res))
                 fig.canvas.draw()
+
+            if( i == 500 and earlyHalt != None ):
+                if( u < earlyHalt ):
+                    self.saver.save(self.sess, "model.checkpoint")
+                listen_params = self.sess.run([a.listen_weights for a in self.agents])
+                return Results(training_res, listen_params, self.num_agents, self.num_environment, u)
 
         # Get the strategy from all agents, which is the "network configuration" at the end
         listen_params = self.sess.run([a.listen_weights for a in self.agents])
