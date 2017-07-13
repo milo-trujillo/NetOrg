@@ -290,7 +290,8 @@ class Results(object):
                     dest += self.num_env
                     dest += (self.num_agents * (layer-1))
                 if( abs(weight) > 0 ):
-                    G.add_edge(int(dest), nodenum, width=float(weight), weight=float(abs(weight)))
+                    G.add_edge(int(dest), nodenum, width=float(weight),
+                        weight=float(abs(weight)), layer=layer)
         nx.write_graphml(G, filename)
         #nx.write_gml(G, filename)
             
