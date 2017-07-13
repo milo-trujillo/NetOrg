@@ -93,13 +93,13 @@ if __name__ == "__main__":
             orgA = network.Organization(optimizer="adadelta", **p)
             print " * Training network 1"
             resA = orgA.train(iterations, iplot=False, verbose=False, earlyHalt=bestWelfare)
-            if( resA.welfare > bestWelfare ):
+            if( resA.welfare < bestWelfare ):
                 bestWelfare = resA.welfare
             print " * Initializing network 2"
             orgB = network.Organization(optimizer="rmsprop", **p)
             print " * Training network 2"
             resB = orgB.train(iterations, iplot=False, verbose=False)
-            if( resB.welfare > bestWelfare ):
+            if( resB.welfare < bestWelfare ):
                 bestWelfare = resB.welfare
         print "Main training trial %d (%s)" % (i+1, p.description)
         org = network.Organization(optimizer="adadelta", restore="model.checkpoint", **p)
