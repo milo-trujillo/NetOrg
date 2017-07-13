@@ -95,7 +95,7 @@ if __name__ == "__main__":
         orgB = network.Organization(optimizer="rmsprop", **p)
         print " * Training network 2"
         resB = orgB.train(iterations, iplot=False, verbose=True)
-        if( resA.welfare > resB.welfare ):
+        if( resA.welfare < resB.welfare ):
             res = resA
         else:
             res = resB
