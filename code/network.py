@@ -279,7 +279,7 @@ class Results(object):
             prefix = aix % self.num_agents
             layer = aix / self.num_agents
             n = "A%d_%d" % (prefix, layer)
-            G.add_node(nodenum, color='r', name=n, category="agent")
+            G.add_node(nodenum, color='r', name=n, category="agent", layer=layer)
             # For each node, weights will be zero if the edge should be ignored
             # and otherwise represent the cost of the edge
             for dest, weight in enumerate(agent.flatten()):
@@ -291,7 +291,10 @@ class Results(object):
                     dest += (self.num_agents * (layer-1))
                 if( abs(weight) > 0 ):
                     G.add_edge(int(dest), nodenum, width=float(weight),
-                        weight=float(abs(weight)), layer=layer)
+                        weight=float(abs(weight)))
+            if( layer > 0 ):
+                predecessor = int(numenv + aix - self.num_agents)
+                G.add_edge(predecessor, nodenum, width=0, weight=0)
         nx.write_graphml(G, filename)
         #nx.write_gml(G, filename)
             
