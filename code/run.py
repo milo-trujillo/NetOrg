@@ -11,8 +11,8 @@ parameters = []
 parameters.append(
     {"innoise" : 2, # Stddev on incomming messages
     "outnoise" : 2, # Stddev on outgoing messages
-    "num_environment" : 5, # Num univariate environment nodes
-    "num_agents" : 10, # Number of Agents
+    "num_environment" : 2, # Num univariate environment nodes
+    "num_agents" : 5, # Number of Agents
     "fanout" : 1, # Distinct messages an agent can say
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
@@ -25,8 +25,8 @@ parameters.append(
 parameters.append(
     {"innoise" : 2, # Stddev on incomming messages
     "outnoise" : 2, # Stddev on outgoing messages
-    "num_environment" : 5, # Num univariate environment nodes
-    "num_agents" : 10, # Number of Agents
+    "num_environment" : 2, # Num univariate environment nodes
+    "num_agents" : 5, # Number of Agents
     "fanout" : 1, # Distinct messages an agent can say
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
@@ -39,8 +39,8 @@ parameters.append(
 parameters.append(
     {"innoise" : 10, # Stddev on incomming messages
     "outnoise" : 2, # Stddev on outgoing messages
-    "num_environment" : 5, # Num univariate environment nodes
-    "num_agents" : 10, # Number of Agents
+    "num_environment" : 2, # Num univariate environment nodes
+    "num_agents" : 5, # Number of Agents
     "fanout" : 1, # Distinct messages an agent can say
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
@@ -53,8 +53,8 @@ parameters.append(
 parameters.append(
     {"innoise" : 2, # Stddev on incomming messages
     "outnoise" : 2, # Stddev on outgoing messages
-    "num_environment" : 10, # Num univariate environment nodes
-    "num_agents" : 10, # Number of Agents
+    "num_environment" : 4, # Num univariate environment nodes
+    "num_agents" : 5, # Number of Agents
     "fanout" : 1, # Distinct messages an agent can say
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
@@ -67,8 +67,8 @@ parameters.append(
 parameters.append(
     {"innoise" : 2, # Stddev on incomming messages
     "outnoise" : 2, # Stddev on outgoing messages
-    "num_environment" : 5, # Num univariate environment nodes
-    "num_agents" : 20, # Number of Agents
+    "num_environment" : 2, # Num univariate environment nodes
+    "num_agents" : 10, # Number of Agents
     "fanout" : 1, # Distinct messages an agent can say
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
