@@ -164,7 +164,10 @@ class Organization(object):
         env = self.num_environment
         differences = []
         for a in self.agents[lastLayer:]:
-            goals = [a.num % env, (a.num + 1) % env, (a.num + 2) % env]
+            goals = []
+            for e in range(env):
+                if( a.num % 2 == e % 2 ):
+                    goals.append(e)
             realValue = tf.reduce_mean(tf.gather(self.environment, goals))
             differences.append(tf.reduce_mean(realValue - a.state)**exponent)
         differenceSum = tf.add_n(differences)
