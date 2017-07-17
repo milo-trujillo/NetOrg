@@ -46,9 +46,9 @@ class Agent(object):
             # here we've made the cost 2x
             multiplier = np.empty_like(self.listen_weights)
             if( self.num % 2 == 0 ):
-                multiplier[0::2] = 1
-                multiplier[1::2] = 2
-            multiplied_weight = tf.multiply(tf.abs(self.listen_weights))
+                multiplier[0::2] = 1.0
+                multiplier[1::2] = 2.0
+            multiplied_weight = tf.matmul(multiplier, tf.abs(self.listen_weights), transpose_a=True)
             return tf.add(tf.reduce_sum(multiplied_weight, self.predecessor.get_listen_weights(env_exponent_cost)))
 
     def get_out_weights(self):
