@@ -45,11 +45,11 @@ class Agent(object):
             # We want to assign a penalty to talking to people with different objectives
             # here we've made the cost 2x
             multiplier = np.empty_like(self.listen_weights)
-            if( a.num % 2 == 0 ):
+            if( self.num % 2 == 0 ):
                 multiplier[0::2] = 1
                 multiplier[1::2] = 2
             multiplied_weight = tf.multiply(tf.abs(self.listen_weights))
-            return tf.add(tf.reduce_sum(multiplied_weight, self.predecessor.get_listen_weights(env_exponent_cost))
+            return tf.add(tf.reduce_sum(multiplied_weight, self.predecessor.get_listen_weights(env_exponent_cost)))
 
     def get_out_weights(self):
         if( self.predecessor == None ):
