@@ -238,9 +238,9 @@ class Results(object):
 
     def get_trimmed_listen_params(self, cutoff=.1):
         self.trimmed = []
+        maxp = np.max(np.abs(self.listen_params))
         for lparams in self.listen_params:
-            maxp = np.max(lparams)
-            lparams = lparams * np.int_(lparams * lparams>cutoff*maxp)
+            lparams = lparams * np.int_(np.abs(lparams)>(cutoff*maxp))
             self.trimmed.append(lparams)
 
     def generate_graph(self, vspace=1, hspace=2):
