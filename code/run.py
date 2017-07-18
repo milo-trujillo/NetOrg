@@ -5,6 +5,7 @@ mpl.use('Agg')
 from matplotlib import pyplot as plt
 import network, agent
 import numpy as np
+import pickle
 
 parameters = []
 
@@ -101,8 +102,9 @@ if __name__ == "__main__":
             res = resB
         print " * Saving better network (Welfare %f)" % res.welfare
         ax.plot(np.log(res.training_res), label=p["description"])
-        filename = "trial%d_welfare_%f.graphml" % (i+1, res.welfare)
-        res.graph_cytoscape(filename)
+        filename = "trial%d_welfare_%f" % (i+1, res.welfare)
+        res.graph_cytoscape(filename + ".graphml")
+        pickle.dump(res, open(filename + "_res.pickle", "wb"))
     ax.set_title("Trials")
     ax.set_xlabel("Training Epoch")
     ax.set_ylabel("Log(Welfare)")
