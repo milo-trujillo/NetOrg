@@ -5,7 +5,6 @@ mpl.use('Agg')
 from matplotlib import pyplot as plt
 import network, agent
 import numpy as np
-import pickle
 
 parameters = []
 
@@ -19,7 +18,7 @@ parameters.append(
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 2, # Stddev on observing environment
     "batchsize" : 100, # Training Batch Size
-    "layers"      : 3, # Number of layers per agent
+    "layers"      : 2, # Number of layers per agent
     "description" : "Baseline"}
 )
 
@@ -33,7 +32,7 @@ parameters.append(
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 5, # Stddev on observing environment
     "batchsize" : 100, # Training Batch Size
-    "layers"      : 3, # Number of layers per agent
+    "layers"      : 2, # Number of layers per agent
     "description" : "Environment Expensive"}
 )
 
@@ -47,7 +46,7 @@ parameters.append(
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 2, # Stddev on observing environment
     "batchsize" : 100, # Training Batch Size
-    "layers"      : 3, # Number of layers per agent
+    "layers"      : 2, # Number of layers per agent
     "description" : "Messages Expensive"}
 )
 
@@ -61,7 +60,7 @@ parameters.append(
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 2, # Stddev on observing environment
     "batchsize" : 100, # Training Batch Size
-    "layers"      : 3, # Number of layers per agent
+    "layers"      : 2, # Number of layers per agent
     "description" : "Double Environment"}
 )
 
@@ -75,7 +74,7 @@ parameters.append(
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 2, # Stddev on observing environment
     "batchsize" : 100, # Training Batch Size
-    "layers"      : 3, # Number of layers per agent
+    "layers"      : 2, # Number of layers per agent
     "description" : "Double Agents"}
 )
 
@@ -102,9 +101,8 @@ if __name__ == "__main__":
             res = resB
         print " * Saving better network (Welfare %f)" % res.welfare
         ax.plot(np.log(res.training_res), label=p["description"])
-        filename = "trial%d_welfare_%f" % (i+1, res.welfare)
-        res.graph_cytoscape(filename + ".graphml")
-        pickle.dump(res, open(filename + "_res.pickle", "wb"))
+        filename = "trial%d_welfare_%f.graphml" % (i+1, res.welfare)
+        res.graph_cytoscape(filename)
     ax.set_title("Trials")
     ax.set_xlabel("Training Epoch")
     ax.set_ylabel("Log(Welfare)")
