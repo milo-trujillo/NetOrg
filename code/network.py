@@ -216,4 +216,3 @@ class Organization(object):
         if( self.writer != None ):
             self.writer.close()
         return Results(training_res, listen_params, self.num_agents, self.num_environment, welfare)
-    
