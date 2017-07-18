@@ -16,8 +16,10 @@ class Organization(object):
     def __init__(self, num_environment, num_agents, innoise,
                      outnoise, fanout, statedim, envnoise, envobsnoise,
                      batchsize, optimizer, layers, randomSeed=False, tensorboard=None, **kwargs):
+        tf.reset_default_graph() # Clear all existing tensorflow memory
         if( randomSeed == False ):
             tf.set_random_seed(634)
+        self.sess = tf.Session()
         self.num_environment = num_environment
         self.num_agents = num_agents
         self.batchsize = batchsize
@@ -29,7 +31,7 @@ class Organization(object):
         self.environment = tf.random_normal([self.batchsize, num_environment],
                                             mean=0, stddev = envnoise, dtype=tf.float64)
         self.build_org()
-        self.objective  =  self.loss()
+        self.objective  =  self.ruggedLoss()
         self.learning_rate = tf.placeholder(tf.float64)
 
         # Justin used the "AdadeltaOptimizer"
@@ -61,7 +63,6 @@ class Organization(object):
         self.start_learning_rate = learning_rates[optimizer]
         self.decay = decays[optimizer]
 
-        self.sess = tf.Session()
         if( tensorboard == None ):
             self.writer = None
         else:
@@ -75,21 +76,21 @@ class Organization(object):
         self.build_wave()
 
     def build_agent_params(self):
+        indim = self.num_environment
         created = []
-        for i, a in enumerate(self.agents):
+        for ix, a in enumerate(self.agents):
+            #print "Agent %d gets indim=%d" % (ix, indim)
             created.append(a)
-            # First wave
-            if( i < self.num_agents ):
-                a.create_in_vec(self.num_environment)
-                a.create_state_matrix(self.num_environment)
-                a.create_out_matrix(self.num_environment)
-            # Second wave and up
+            if( ix < self.num_agents ):
+                a.create_in_vec(indim)
+                a.create_state_matrix(indim)
+                a.create_out_matrix(indim)
             else:
-                old_version = created.pop(0)
-                a.set_predecessor(old_version)
+                a.set_predecessor(created.pop(0))
                 a.create_in_vec(self.num_agents)
-                a.create_state_matrix(self.num_agents + old_version.indim)
-                a.create_out_matrix(self.num_agents + old_version.indim)
+                a.create_state_matrix(self.num_agents + a.predecessor.indim)
+                a.create_out_matrix(self.num_agents + a.predecessor.indim)
+            indim += a.fanout
 
     def build_wave(self):
         """
@@ -98,71 +99,88 @@ class Organization(object):
         recursively use to build all other agent's states and outputs
         """
         self.states = []
-        self.outputs = []
-        for i, a in enumerate(self.agents):
+        self.outputs = [[] for x in range(0, len(self.agents)+1)]
+        for a in self.agents:
             envnoise = tf.random_normal([self.batchsize, self.num_environment], stddev=self.envobsnoise, dtype=tf.float64)
-            inenv = self.environment
 
-            incomm = None
+            noisyin = []
+            state = []
+            a.state = []
 
-            # First wave
-            if( a.predecessor == None ):
-                indata = inenv
-                innoise = envnoise
-            # Second wave+
-            else:
-                '''
-                We're only listening to the first wave nodes (no environment),
-                so can skip all the inenv and envnoise steps
-                '''
-                loadLayerStart = ((a.num / self.num_agents) - 1) * self.num_agents
-                loadLayerEnd = (a.num / self.num_agents) * self.num_agents
-                indata = tf.concat(self.outputs[loadLayerStart:loadLayerEnd], 1)
-                commnoise = tf.random_normal([self.batchsize, self.num_agents], stddev=a.noiseinstd, dtype=tf.float64)
-                innoise = commnoise
+            for i in range(0, self.num_agents + 1):
+                inenv = self.environment
+                incomm = None #?
 
-            # Add noise inversely-proportional to listening strength
-            noisyin = indata + innoise/a.listen_weights
+                # First wave
+                if( a.predecessor == None ):
+                    for inmsgs in self.outputs[i]:
+                        if incomm is None:
+                            incomm = inmsgs # Stays None if inmsgs blank, otherwise becomes inmsgs
+                        else:
+                            incomm =  tf.concat([incomm, inmsgs], 1) # If already a message, then concat
+                    commnoise = tf.random_normal([self.batchsize, a.indim - self.num_environment], stddev=a.noiseinstd, dtype=tf.float64)
+                    # Noise on inputs
+                    if incomm is not None:
+                        indata = tf.concat([inenv, incomm], 1) # batchsize x 
+                    else:
+                        indata = inenv
+                    innoise = tf.concat([envnoise, commnoise], 1)
+                # Second wave and up
+                else:
+                    '''
+                    We're only listening to the first wave nodes (no environment),
+                    so can skip all the inenv and envnoise steps
+                    '''
+                    loadLayerStart = ((a.num / self.num_agents) - 1) * self.num_agents
+                    loadLayerEnd = (a.num / self.num_agents) * self.num_agents
+                    indata = tf.concat(self.outputs[i][loadLayerStart:loadLayerEnd], 1)
+                    commnoise = tf.random_normal([self.batchsize, self.num_agents], stddev=a.noiseinstd, dtype=tf.float64)
+                    innoise = commnoise
 
-            # Since listen weights is 1xin we get row wise division.
-            if( a.predecessor != None ):
-                noisyin = tf.concat([a.predecessor.received_messages, noisyin], 1)
-            a.set_received_messages(noisyin)
+                # Add noise inversely-proportional to listening strength
+                noisyin.append(indata + innoise/a.listen_weights[i])
+                if( a.predecessor != None ):
+                    noisyin[i] = tf.concat([a.predecessor.received_messages[i], noisyin[i]], 1)
+                a.set_received_messages(i, noisyin[i])
 
-            state = tf.matmul(noisyin, a.state_weights)
-            a.state = state
-            self.states.append(state)
+                # Since listen weights is 1xin we get row wise division.
+                state.append(tf.matmul(noisyin[i], a.state_weights[i]))
+                a.state.append(state[i])
+                self.states.append(state[i])
 
-            outnoise = tf.random_normal([self.batchsize, a.fanout], stddev=a.noiseoutstd, dtype=tf.float64)
-            prenoise = tf.matmul(noisyin, a.out_weights)
-            output = prenoise + outnoise
-            self.outputs.append(output)
-            # output is a vector with dimensions [1, batchsize]
-            #with tf.Session() as sess:
-                #init = tf.global_variables_initializer()
-                #sess.run(init)
-                #res = sess.run(output)
-                #print "Appending output for agent " + str(i) + ": " + str(res)
+                outnoise = tf.random_normal([self.batchsize, a.fanout], stddev=a.noiseoutstd, dtype=tf.float64)
+                #outnoise = tf.random_uniform([self.batchsize, a.fanout], minval=a.noiseoutstd,maxval=a.noiseoutstd, dtype=tf.float64)
+                prenoise = tf.matmul(noisyin[i], a.out_weights[i])
+                output = prenoise + outnoise
+                self.outputs[i].append(output)
 
-    def listening_cost(self, exponent=2):
-        summed = [x.listen_cost(exponent) for x in self.agents]
+    def listening_cost(self, exponent=2, iteration=0):
+        summed = [tf.reduce_sum(tf.abs(x.listen_weights[iteration]))**exponent for x in self.agents]
         totalc = tf.add_n(summed)
         return totalc
 
-    def speaking_cost(self, exponent=2):
-        summed = [tf.reduce_sum(tf.abs(x.out_weights))**exponent for x in self.agents]
+    def speaking_cost(self, exponent=2, iteration=0):
+        summed = [tf.reduce_sum(tf.abs(x.out_weights[iteration]))**exponent for x in self.agents]
         totalc = tf.add_n(summed)
         return totalc
 
-    # Gets the difference^2 of how far each agent is from real avg of variables
-    # Note: We only look at the upper layer (A0_1, not A0_0) for determining welfare
-    def loss(self, exponent=2):
-        lastLayer = self.num_agents * (self.layers - 1)
+    # Gets avg loss, if we turn off one node at a time (should emphasize redundancy)
+    # This is tricky, since we have to describe it functionally, not iteratively,
+    # since tensorflow variables are evaluated at a later point
+    def ruggedLoss(self, exponent=2):
+        differences = []
+        costs = []
         realValue = tf.reduce_mean(self.environment, 1, keep_dims=True)
-        differences = [tf.reduce_mean((realValue - a.state)**exponent) for a in self.agents[lastLayer:]]
+        lastLayer = self.num_agents * (self.layers - 1)
+        for i in range(0, self.num_agents + 1): # For each layer
+            diff = [tf.reduce_mean((realValue - a.state[i]) ** exponent) for a in self.agents[lastLayer:]]
+            diffSum = tf.add_n(diff)
+            differences.append(diffSum)
+            c = self.listening_cost(iteration=i) + self.speaking_cost(iteration=i)
+            costs.append(c)
         differenceSum = tf.add_n(differences)
-        cost = self.listening_cost() + self.speaking_cost()
-        loss = differenceSum + cost
+        cost = tf.add_n(costs)
+        loss = tf.add(differenceSum, cost)
         return loss
 
     def train(self, niters, lrinit=None, iplot=False, verbose=False):
@@ -188,12 +206,13 @@ class Organization(object):
                 lr = float(lrinit) / (1 + i*self.decay) # Learn less over time
             self.sess.run(self.optimize, feed_dict={self.learning_rate:lr})
 
+
             if verbose:
-                listen_params = self.sess.run([a.listen_weights for a in self.agents])
-                output_params = self.sess.run([a.out_weights for a in self.agents])
+                listen_params = self.sess.run([a.listen_weights[0] for a in self.agents])
+                output_params = self.sess.run([a.out_weights[0] for a in self.agents])
                 print "Listen_params now set to: " + str(listen_params)
                 #print "Output_params now set to: " + str(output_params)
-
+                
             # Prints the agent's current strategy at each step so we can see how well it's doing
             #strat = self.sess.run(self.agents[0].listen_weights)
             #print(strat)
@@ -209,10 +228,11 @@ class Organization(object):
                 fig.canvas.draw()
 
         # Get the strategy from all agents, which is the "network configuration" at the end
-        listen_params = self.sess.run([a.listen_weights for a in self.agents])
+        listen_params = self.sess.run([a.listen_weights[0] for a in self.agents])
         welfare = self.sess.run(self.objective)
         if( verbose ):
             print "Listen_params now set to: " + str(listen_params)
         if( self.writer != None ):
             self.writer.close()
+
         return Results(training_res, listen_params, self.num_agents, self.num_environment, welfare)
