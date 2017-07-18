@@ -26,8 +26,8 @@ class Agent(object):
         self.received_messages = [None for x in range(self.numagents + 1)]
 
     def create_in_vec(self, indim):
+        print "Creating in vec for agent %d" % self.num
         self.indim = indim
-        #self.listen_weights = tf.get_variable(dtype=tf.float64, name=str(self.num) + "listen" +str(self.id) , shape=[1, self.numagents])
         self.listen_weights = []
         for i in range(0, self.numagents + 1):
             if( i == 0 ):
@@ -41,6 +41,9 @@ class Agent(object):
             #init = tf.global_variables_initializer()
             #sess.run(init)
             #print "Agent %d Created with listen_weights: %s" % (self.num, str(sess.run(self.listen_weights[0])))
+
+    def listen_cost(self, exponent):
+        return tf.reduce_sum(tf.abs(self.listen_weights))**exponent
 
     def create_state_matrix(self, indim):
         #self.state_weights = tf.get_variable(dtype=tf.float64, name=str(self.num) + "state" +str(self.id), shape=[self.numagents, self.statedim])
@@ -60,6 +63,12 @@ class Agent(object):
 
     def set_received_messages(self, iteration, msgs):
         self.received_messages[iteration] = msgs
+
+    def set_predecessor(self, agent):
+        self.predecessor = agent
+
+    def set_received_messages(self, msgs):
+        self.received_messages = msgs
 
     def create_out_matrix(self, indim):
         #self.out_weights = tf.get_variable(dtype=tf.float64, name=str(self.num) + "out" +str(self.id), shape=[self.numagents, self.fanout])
