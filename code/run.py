@@ -6,6 +6,7 @@ from matplotlib import pyplot as plt
 import network, agent
 import numpy as np
 import pickle
+import copy
 
 parameters = []
 
@@ -81,32 +82,41 @@ parameters.append(
 
 if __name__ == "__main__":
     plt.ion()
-    fig = plt.figure()
-    ax = fig.add_subplot(1,1,1)
+    welfarefig = plt.figure()
+    welfareax = fig.add_subplot(1,1,1)
+    listencostfig = plt.figure()
+    listencostax = fig.add_subplot(1,1,1)
     res = None
     iterations = 3000
-    for i in range(len(parameters)):
-        p = parameters[i]
+    for i in range(100):
+        p = copy.deepcopy(parameters[0])
+        p["innoise"] += i
         print "Running trial %d (%s)" % (i+1, p["description"])
         print " * Initializing network 1"
         orgA = network.Organization(optimizer="adadelta", **p)
         print " * Training network 1"
-        resA = orgA.train(iterations, iplot=False, verbose=True)
+        resA = orgA.train(iterations, iplot=False, verbose=False)
         print " * Initializing network 2"
         orgB = network.Organization(optimizer="rmsprop", **p)
         print " * Training network 2"
-        resB = orgB.train(iterations, iplot=False, verbose=True)
+        resB = orgB.train(iterations, iplot=False, verbose=False)
         if( resA.welfare < resB.welfare ):
             res = resA
         else:
             res = resB
         print " * Saving better network (Welfare %f)" % res.welfare
-        ax.plot(np.log(res.training_res), label=p["description"])
+        welfareax.plot(np.log(res.training_res), label=p["description"])
+        listencostax.plot([p["innoise"]], [res.global_reaching_centrality()])
         filename = "trial%d_welfare_%f" % (i+1, res.welfare)
         res.graph_cytoscape(filename + ".graphml")
         pickle.dump(res, open(filename + "_res.pickle", "wb"))
-    ax.set_title("Trials")
-    ax.set_xlabel("Training Epoch")
-    ax.set_ylabel("Log(Welfare)")
-    ax.legend()
-    fig.savefig("trials.png")
+    welfareax.set_title("Trials")
+    welfareax.set_xlabel("Training Epoch")
+    welfareax.set_ylabel("Log(Welfare)")
+    welfareax.legend()
+    welfarefig.savefig("trials.png")
+    listencostax.set_title("Centrality Parameter Sweep")
+    listencostax.set_xlabel("Listen Cost")
+    listencostax.set_ylabel("Global Reaching Centrality")
+    listencostax.legend()
+    listencostax.savefig("centrality_sweep.png")
