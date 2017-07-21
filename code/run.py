@@ -83,9 +83,9 @@ parameters.append(
 if __name__ == "__main__":
     plt.ion()
     welfarefig = plt.figure()
-    welfareax = fig.add_subplot(1,1,1)
+    welfareax = welfarefig.add_subplot(1,1,1)
     listencostfig = plt.figure()
-    listencostax = fig.add_subplot(1,1,1)
+    listencostax = listencostfig.add_subplot(1,1,1)
     res = None
     iterations = 3000
     for i in range(100):
