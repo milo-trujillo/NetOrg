@@ -11,14 +11,13 @@ class Results(object):
         self.training_res = training_res
         self.listen_params = listen_params
         self.get_trimmed_listen_params()
-        self.get_meta_agent_weights()
         self.welfare = welfare
         self.num_agents = num_agents
         self.num_env = num_env
+        self.layers = len(listen_params) / num_agents
 
     def reset(self):
         self.get_trimmed_listen_params()
-        self.get_meta_agent_weights()
 
     def get_trimmed_listen_params(self, cutoff=.5):
         self.trimmed = []
@@ -26,20 +25,6 @@ class Results(object):
             maxp = np.max(lparams)
             lparams = lparams * np.int_(lparams * lparams>(cutoff*maxp))
             self.trimmed.append(lparams)
-
-    def get_meta_agent_weights(self):
-        self.meta_weights = []
-        for i in range(self.num_agents):
-            self.meta_weights.append(self.get_agent_weights(i))
-
-    # Concats the listen weights from each layer of an agent
-    def get_agent_weights(self, agent):
-        weights = []
-        total_nodes = len(self.trimmed)
-        while( agent < total_nodes ):
-            weights += self.trimmed[agent].tolist()[0]
-            agent += self.num_agents
-        return weights
 
     def generate_graph(self, vspace=1, hspace=2):
         numenv = len(self.trimmed[0].flatten())
@@ -107,28 +92,101 @@ class Results(object):
         nx.write_graphml(G, filename)
         #nx.write_gml(G, filename)
 
-    # Returns a list of the *agents* a given agent is connected to
-    def get_non_zero_edges_to_agents(self, agent):
+    # Returns global reaching centrality for a weighted directed graph
+    def global_reaching_centrality(self):
+        centrality = []
+        for i in range(self.num_agents):
+            centrality.append(self.get_centrality_of_agent(i))
+        max_centrality = max(centrality)
+        total = 0.0
+        for c in centrality:
+            total += (max_centrality - c)
+        return total / self.num_agents
+
+    # Returns the sum of the centrality for each layer of the agent
+    # NOTE: Mean is inappropriate here, because if a layer 2 is unused
+    # then the (common) outlier will drop the centrality a ton
+    def get_centrality_of_agent(self, agent):
+        centrality = 0.0
+        total_nodes = len(self.trimmed)
+        while( agent < total_nodes ):
+            centrality += self.get_centrality_of_node(agent)
+            agent += self.num_agents
+        return centrality
+
+    # Returns the centrality of a node in a weighted graph
+    def get_centrality_of_node(self, node):
+        total_weight = 0.0
+        total_nodes = len(self.trimmed)
+        for i in range(total_nodes):
+            path = self.get_listening_to_path(node, i)
+            if( len(path) > 0 ):
+                weight = self.get_weight_of_listening_to_path(node, i)
+                total_weight += (weight / len(path))
+        return ((1/float(total_nodes - 1)) * total_weight)
+
+    # Returns a list of the agent IDs this agent listens to
+    def get_agents_listened_to(self, agent):
         neighbors = []
-        weights = self.meta_weights[agent]
+        weights = self.trimmed[agent].flatten()
+        layer = agent / self.num_agents
+        agent_num = agent % self.num_agents
+        if( layer == 0 ):
+            return [] # Layer 0 only listens to env
         for i in range(len(weights)):
-            if( i >= self.num_env and weights[i] != 0 ):
-                neighbors.append((i - self.num_env) % self.num_agents)
+            # We (effectively) get a free path from our predecessor
+            if( weights[i] != 0 or i == agent_num ):
+                neighbors.append(i + (layer * self.num_agents))
+        return neighbors
+
+    # More expensive - get a list of everyone listening to this agent
+    def get_agents_listening_to(self, agent):
+        neighbors = []
+        layer = agent / self.num_agents
+        nextLayerStart = (layer+1)*self.num_agents
+        agent_num = agent % self.num_agents
+        # Outermost layer won't have anyone listening to it
+        if( layer == self.layers-1 ):
+            return []
+        for a in range(nextLayerStart, nextLayerStart + self.num_agents):
+            weights = self.trimmed[a].flatten()
+            a_num = a % self.num_agents
+            # We (effectively) get a free path to our predecessor
+            if( weights[agent_num] != 0 or a_num == agent_num ):
+                neighbors.append(a)
         return neighbors
 
     # Returns sum of all weights along the path, or zero if path impossible
-    def get_weight_of_path(self, src, dst):
-        path = self.get_path(src, dst)
+    def get_weight_of_listened_to_path(self, src, dst):
+        weight = 0.0
+        path = self.get_listened_to_path(src, dst)
+        #print "Received path: " + str(path)
+        while( len(path) > 1 ):
+            step = path.pop()
+            nextAgent = path[-1] % self.num_agents
+            #print "Looking at how much %d listens to %d" % (step, path[-1])
+            weight += self.trimmed[step].flatten()[nextAgent]
+        return weight
+
+    # Returns sum of all weights along the path, or zero if path impossible
+    def get_weight_of_listening_to_path(self, src, dst):
+        weight = 0.0
+        path = self.get_listening_to_path(src, dst)
+        #print "Received path: " + str(path)
+        while( len(path) > 1 ):
+            step = path.pop()
+            nextAgent = path[-1] % self.num_agents
+            #print "Looking at how much %d listens to %d" % (step, path[-1])
+            weight += self.trimmed[step].flatten()[nextAgent]
+        return weight
 
     # Performs a simple breadth-first search to return path between agents
     # Iterative, so we won't hit max stack depth on a big graph
-    def get_path(self, src, dst):
-        total_weight = 0.0
+    def get_listened_to_path(self, src, dst):
         seen = set([src])
         parents = dict()
-        q = self.get_non_zero_edges_to_agents(src)
+        q = self.get_agents_listened_to(src)
         while( len(q) > 0 ):
-            print "Q is now " + str(q)
             c = q.pop(0)
             seen.add(c)
             if( c == dst ):
@@ -136,15 +194,40 @@ class Results(object):
                 while( c in parents.keys() ):
                     c = parents[c]
                     path.append(c)
+                path.append(src)
                 path.reverse()
                 return path
-            for n in self.get_non_zero_edges_to_agents(c):
+            for n in self.get_agents_listened_to(c):
                 if( n not in seen ):
                     seen.add(n)
                     parents[n] = c
                     q.append(n)
         return []
             
+    # Performs a simple breadth-first search to return path between agents
+    # Iterative, so we won't hit max stack depth on a big graph
+    def get_listening_to_path(self, src, dst):
+        seen = set([src])
+        parents = dict()
+        q = self.get_agents_listening_to(src)
+        while( len(q) > 0 ):
+            c = q.pop(0)
+            seen.add(c)
+            if( c == dst ):
+                path = [c]
+                while( c in parents.keys() ):
+                    c = parents[c]
+                    path.append(c)
+                path.append(src)
+                path.reverse()
+                return path
+            for n in self.get_agents_listening_to(c):
+                if( n not in seen ):
+                    seen.add(n)
+                    parents[n] = c
+                    q.append(n)
+        return []
+
     def _get_pos(self, G):
         numenv = len(self.trimmed[0].flatten())
         numnodes = numenv + len(self.trimmed)
