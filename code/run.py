@@ -119,4 +119,4 @@ if __name__ == "__main__":
     listencostax.set_xlabel("Listen Cost")
     listencostax.set_ylabel("Global Reaching Centrality")
     listencostax.legend()
-    listencostax.savefig("centrality_sweep.png")
+    listencostfig.savefig("centrality_sweep.png")
