@@ -15,6 +15,7 @@ class Results(object):
         self.num_agents = num_agents
         self.num_env = num_env
         self.layers = len(listen_params) / num_agents
+        self.G = None
 
     def reset(self):
         self.get_trimmed_listen_params()
@@ -55,25 +56,17 @@ class Results(object):
             G.node[nodenum]["pos"] = (hpos, vpos)
         return G
 
-    def graph_org(self, vspace=1, hspace=2):
-        G = self.generate_graph(vspace, hspace)
-        colors = nx.get_node_attributes(G, "color").values()
-        pos= nx.get_node_attributes(G, "pos")
-        nx.draw(G, pos, node_color = colors, with_labels=True,
-                    labels=nx.get_node_attributes(G, "name"), alpha=.5, node_size=600 )
-        return G
-
-    def graph_cytoscape(self, filename, vspace=1, hspace=2):
+    def graph_org(self):
         numenv = len(self.trimmed[0].flatten())
-        G = nx.DiGraph()
+        self.G = nx.DiGraph()
         for i in range(numenv):
-            G.add_node(i, color="b", name="E" + str(i), category="environment")
+            self.G.add_node(i, color="b", name="E" + str(i), category="environment")
         for aix, agent in enumerate(self.trimmed):
             nodenum = int(numenv + aix)
             prefix = aix % self.num_agents
             layer = aix / self.num_agents
             n = "A%d_%d" % (prefix, layer)
-            G.add_node(nodenum, color='r', name=n, category="agent", layer=layer)
+            self.G.add_node(nodenum, color='r', name=n, category="agent", layer=layer)
             # For each node, weights will be zero if the edge should be ignored
             # and otherwise represent the cost of the edge
             for dest, weight in enumerate(agent.flatten()):
@@ -84,13 +77,34 @@ class Results(object):
                     dest += self.num_env
                     dest += (self.num_agents * (layer-1))
                 if( abs(weight) > 0 ):
-                    G.add_edge(int(dest), nodenum, width=float(weight),
+                    self.G.add_edge(int(dest), nodenum, width=float(weight),
                         weight=float(abs(weight)))
             if( layer > 0 ):
                 predecessor = int(numenv + aix - self.num_agents)
-                G.add_edge(predecessor, nodenum, width=0, weight=0)
+                self.G.add_edge(predecessor, nodenum, width=0, weight=0)
+
+    def graph_cytoscape(self, filename):
+        if( self.G == None ):
+            self.graph_org()
         nx.write_graphml(G, filename)
         #nx.write_gml(G, filename)
+
+    # Returns std-deviation of agent degree
+    # Note: AGENT degree, not NODE degree
+    def get_degree_distribution(self):
+        if( self.G == None ):
+            self.graph_org()
+        numenv = len(self.trimmed[0].flatten())
+        degrees = []
+        for a in range(self.num_agents):
+            degree = 0
+            a += numenv
+            while( a < len(self.G) ):
+                degree += self.G.degree(a)
+                a += self.num_agents
+            degree /= float(self.layers)
+            degrees.append(degree)
+        return np.std(np.array(degrees))
 
     # Returns global reaching centrality for a weighted directed graph
     def global_reaching_centrality(self):
