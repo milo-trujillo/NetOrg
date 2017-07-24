@@ -83,13 +83,13 @@ parameters.append(
 def runSim(parameters, iteration):
     print "Running trial %d (%s)" % (iteration+1, parameters["description"])
     print " * Initializing network 1"
-    orgA = network.Organization(optimizer="adadelta", **p)
+    orgA = network.Organization(optimizer="adadelta", randomSeed=True, **p)
     print " * Training network 1"
-    resA = orgA.train(iterations, iplot=False, verbose=False, randomSeed=True)
+    resA = orgA.train(iterations, iplot=False, verbose=False)
     print " * Initializing network 2"
-    orgB = network.Organization(optimizer="rmsprop", **p)
+    orgB = network.Organization(optimizer="rmsprop", randomSeed=True, **p)
     print " * Training network 2"
-    resB = orgB.train(iterations, iplot=False, verbose=False, randomSeed=True)
+    resB = orgB.train(iterations, iplot=False, verbose=False)
     if( resA.welfare < resB.welfare ):
         res = resA
     else:
