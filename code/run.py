@@ -80,6 +80,23 @@ parameters.append(
     "description" : "Double Agents"}
 )
 
+def runSim(parameters, iteration):
+    print "Running trial %d (%s)" % (iteration+1, parameters["description"])
+    print " * Initializing network 1"
+    orgA = network.Organization(optimizer="adadelta", **p)
+    print " * Training network 1"
+    resA = orgA.train(iterations, iplot=False, verbose=False, randomSeed=True)
+    print " * Initializing network 2"
+    orgB = network.Organization(optimizer="rmsprop", **p)
+    print " * Training network 2"
+    resB = orgB.train(iterations, iplot=False, verbose=False, randomSeed=True)
+    if( resA.welfare < resB.welfare ):
+        res = resA
+    else:
+        res = resB
+    print " * Saving better network (Welfare %f)" % res.welfare
+    return res
+
 if __name__ == "__main__":
     plt.ion()
     welfarefig = plt.figure()
@@ -88,25 +105,15 @@ if __name__ == "__main__":
     listencostax = listencostfig.add_subplot(1,1,1)
     degreefig = plt.figure()
     degreeax = degreefig.add_subplot(1,1,1)
-    res = None
-    iterations = 3000
-    for i in range(100):
+    iterations = 1000
+    for i in range(10):
         p = copy.deepcopy(parameters[0])
         p["innoise"] += i
-        print "Running trial %d (%s)" % (i+1, p["description"])
-        print " * Initializing network 1"
-        orgA = network.Organization(optimizer="adadelta", **p)
-        print " * Training network 1"
-        resA = orgA.train(iterations, iplot=False, verbose=False)
-        print " * Initializing network 2"
-        orgB = network.Organization(optimizer="rmsprop", **p)
-        print " * Training network 2"
-        resB = orgB.train(iterations, iplot=False, verbose=False)
-        if( resA.welfare < resB.welfare ):
-            res = resA
-        else:
-            res = resB
-        print " * Saving better network (Welfare %f)" % res.welfare
+        res = None
+        for restart in range(10):
+            result = runSim(p, i)
+            if( res == None or result.welfare < res.welfare ):
+                res = result
         welfareax.plot(np.log(res.training_res), label=p["description"])
         listencostax.plot([p["innoise"]], [res.global_reaching_centrality()])
         degreeax.plot([p["innoise"]], [res.get_degree_distribution()])
