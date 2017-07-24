@@ -19,8 +19,9 @@ class Results(object):
 
     def reset(self):
         self.get_trimmed_listen_params()
+        self.graph_org()
 
-    def get_trimmed_listen_params(self, cutoff=.5):
+    def get_trimmed_listen_params(self, cutoff=.05):
         self.trimmed = []
         for lparams in self.listen_params:
             maxp = np.max(lparams)
