@@ -86,6 +86,8 @@ if __name__ == "__main__":
     welfareax = welfarefig.add_subplot(1,1,1)
     listencostfig = plt.figure()
     listencostax = listencostfig.add_subplot(1,1,1)
+    degreefig = plt.figure()
+    degreeax = degreefig.add_subplot(1,1,1)
     res = None
     iterations = 3000
     for i in range(100):
@@ -107,6 +109,7 @@ if __name__ == "__main__":
         print " * Saving better network (Welfare %f)" % res.welfare
         welfareax.plot(np.log(res.training_res), label=p["description"])
         listencostax.plot([p["innoise"]], [res.global_reaching_centrality()])
+        degreeax.plot([p["innoise"]], [res.get_degree_distribution()])
         filename = "trial%d_welfare_%f" % (i+1, res.welfare)
         res.graph_cytoscape(filename + ".graphml")
         pickle.dump(res, open(filename + "_res.pickle", "wb"))
@@ -120,3 +123,8 @@ if __name__ == "__main__":
     listencostax.set_ylabel("Global Reaching Centrality")
     listencostax.legend()
     listencostfig.savefig("centrality_sweep.png")
+    degreeax.set_title("Centrality Parameter Sweep")
+    degreeax.set_xlabel("Listen Cost")
+    degreeax.set_ylabel("Degree Std-Deviation (per agent)")
+    degreeax.legend()
+    degreefig.savefig("degree_sweep.png")
