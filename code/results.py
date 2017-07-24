@@ -86,7 +86,7 @@ class Results(object):
     def graph_cytoscape(self, filename):
         if( self.G == None ):
             self.graph_org()
-        nx.write_graphml(G, filename)
+        nx.write_graphml(self.G, filename)
         #nx.write_gml(G, filename)
 
     # Returns std-deviation of agent degree
