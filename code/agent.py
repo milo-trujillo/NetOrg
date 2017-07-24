@@ -27,7 +27,6 @@ class Agent(object):
         self.received_messages = None
 
     def create_in_vec(self, indim):
-        print "Creating in vec for agent %d" % self.num
         self.indim = indim
         # If A0_1 is agent 15 and there's 10 agents, then A0_0 will be agent 5, but will be LISTEN_WEIGHT[prev_gen + num_env]
         prev_gen = self.num - self.numagents
