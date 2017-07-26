@@ -43,6 +43,7 @@ class Agent(object):
             #print "Agent %d Created with listen_weights: %s" % (self.num, str(sess.run(self.listen_weights[0])))
 
     def create_state_matrix(self, indim):
+        self.indim = indim
         #self.state_weights = tf.get_variable(dtype=tf.float64, name=str(self.num) + "state" +str(self.id), shape=[self.numagents, self.statedim])
         self.state_weights = []
         for i in range(0, self.numagents + 1):
@@ -62,6 +63,7 @@ class Agent(object):
         self.received_messages[iteration] = msgs
 
     def create_out_matrix(self, indim):
+        self.indim = indim
         #self.out_weights = tf.get_variable(dtype=tf.float64, name=str(self.num) + "out" +str(self.id), shape=[self.numagents, self.fanout])
         self.out_weights = []
         for i in range(0, self.numagents + 1):
