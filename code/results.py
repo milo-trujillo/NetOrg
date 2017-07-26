@@ -4,6 +4,7 @@ import matplotlib as mpl
 mpl.use('Agg') # Don't require a GUI to generate graphs
 from matplotlib import pyplot as plt
 import networkx as nx
+import re
 plt.ion()
 
 class Results(object):
@@ -16,10 +17,12 @@ class Results(object):
         self.num_env = num_env
         self.layers = len(listen_params) / num_agents
         self.G = None
+        self.CG = None
 
     def reset(self):
         self.get_trimmed_listen_params()
         self.graph_org()
+        self.graph_collapsed_org()
 
     def get_trimmed_listen_params(self, cutoff=.05):
         self.trimmed = []
@@ -57,17 +60,26 @@ class Results(object):
             G.node[nodenum]["pos"] = (hpos, vpos)
         return G
 
-    def graph_org(self):
+
+    def graph_org(self, vspace=200, hspace=200, layout=True):
         numenv = len(self.trimmed[0].flatten())
         self.G = nx.DiGraph()
         for i in range(numenv):
             self.G.add_node(i, color="b", name="E" + str(i), category="environment")
+            if( layout ):
+                nx.set_node_attributes(self.G, "graphics", {i: {'x':hspace*i, 'y':0}})
+        hspace = hspace * numenv / float(self.num_agents)
+        hoffset = -1 * (hspace / numenv) # We want to center the nodes above the env
         for aix, agent in enumerate(self.trimmed):
             nodenum = int(numenv + aix)
             prefix = aix % self.num_agents
             layer = aix / self.num_agents
             n = "A%d_%d" % (prefix, layer)
             self.G.add_node(nodenum, color='r', name=n, category="agent", layer=layer)
+            nodex = hoffset + hspace*prefix
+            nodey = vspace * (layer + 1)
+            if( layout ):
+               	nx.set_node_attributes(self.G, "graphics", {nodenum: {'x':nodex, 'y':nodey}})
             # For each node, weights will be zero if the edge should be ignored
             # and otherwise represent the cost of the edge
             for dest, weight in enumerate(agent.flatten()):
@@ -84,11 +96,67 @@ class Results(object):
                 predecessor = int(numenv + aix - self.num_agents)
                 self.G.add_edge(predecessor, nodenum, width=0, weight=0)
 
+    def graph_collapsed_org(self):
+        numenv = len(self.trimmed[0].flatten())
+        self.CG = nx.DiGraph()
+        for i in range(numenv):
+            self.CG.add_node(i, color="b", name="E" + str(i), category="environment")
+        for aix in range(self.num_agents):
+            nodenum = int(numenv + aix)
+            self.CG.add_node(nodenum, color='r', name="A"+str(aix), category="agent")
+        for aix, agent in enumerate(self.trimmed):
+            nodenum = int(numenv + aix)
+            prefix = aix % self.num_agents
+            layer = aix / self.num_agents
+            src = numenv + prefix
+            for dest, weight in enumerate(agent.flatten()):
+                if( layer > 0 ):
+                    dest += self.num_env
+                if( abs(weight) > 0 and not self.CG.has_edge(int(dest), int(src)) ):
+                    self.CG.add_edge(int(dest), int(src))
+
+    # NetworkX always saves an int "label" in gml files
+    # That's nice, but it prevents Cytoscape from reading our "name" attribute,
+    # so we'll strip the labels out from the gml.
+    def patch_gml(self, filename):
+        with open(filename, "r+") as f:
+            content = f.read()
+            #newcontent = re.sub("label (\S+)", r'label "\1"', content)
+            newcontent = re.sub("label (\S+)\s+", r'', content)
+            f.seek(0, 0)
+            f.truncate()
+            f.write(newcontent)
+
     def graph_cytoscape(self, filename):
         if( self.G == None ):
             self.graph_org()
-        nx.write_graphml(self.G, filename)
-        #nx.write_gml(G, filename)
+        #nx.write_graphml(self.G, filename)
+        nx.write_gml(self.G, filename)
+        self.patch_gml(filename)
+
+    def graph_collapsed_cytoscape(self, filename):
+        if( self.CG == None ):
+            self.graph_collapsed_org()
+        #nx.write_graphml(self.G, filename)
+        nx.write_gml(self.CG, filename)
+        self.patch_gml(filename)
+
+    # Returns std-deviation of agent degree
+    # Note: AGENT degree, not NODE degree
+    def get_degree_distribution(self):
+        if( self.G == None ):
+            self.graph_org()
+        numenv = len(self.trimmed[0].flatten())
+        degrees = []
+        for a in range(self.num_agents):
+            degree = 0
+            a += numenv
+            while( a < len(self.G) ):
+                degree += self.G.degree(a)
+                a += self.num_agents
+            degree /= float(self.layers)
+            degrees.append(degree)
+        return np.std(np.array(degrees))
 
     # Returns std-deviation of agent degree
     # Note: AGENT degree, not NODE degree
