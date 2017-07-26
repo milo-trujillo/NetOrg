@@ -81,7 +81,7 @@ parameters.append(
     "description" : "Double Agents"}
 )
 
-def runSim(parameters, iteration):
+def runSim(parameters, iteration, iterations):
     print "Running trial %d (%s)" % (iteration+1, parameters["description"])
     print " * Initializing network 1"
     orgA = network.Organization(optimizer="adadelta", randomSeed=True, **p)
@@ -102,10 +102,10 @@ def runSim(parameters, iteration):
 # the problem by running batches of tensorflow simulations in subprocesses.
 # Killing the subprocesses forcibly frees the memory, and keeps us from
 # using 200 GB on longer runs
-def runIterations(parameters, numIterations, filename):
+def runIterations(parameters, restarts, numIterations, filename):
     res = None
-    for restart in range(10):
-        result = runSim(parameters, restart)
+    for restart in range(restarts):
+        result = runSim(parameters, restart, numIterations)
         if( res == None or result.welfare < res.welfare ):
             res = result
     pickle.dump(res, open(filename + "_res.pickle", "wb"))
@@ -123,7 +123,7 @@ if __name__ == "__main__":
         p = copy.deepcopy(parameters[0])
         p["innoise"] += i
         filename = "trial%d" % (i+1)
-        proc = multiprocessing.Process(target=runIterations, args=(p, 10, filename,))
+        proc = multiprocessing.Process(target=runIterations, args=(p, 10, iterations, filename,))
         proc.start()
         proc.join()
         res = pickle.load(open(filename + "_res.pickle", "rb"))
