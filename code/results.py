@@ -60,6 +60,7 @@ class Results(object):
             G.node[nodenum]["pos"] = (hpos, vpos)
         return G
 
+
     def graph_org(self, vspace=200, hspace=200, layout=True):
         numenv = len(self.trimmed[0].flatten())
         self.G = nx.DiGraph()
@@ -139,6 +140,23 @@ class Results(object):
         #nx.write_graphml(self.G, filename)
         nx.write_gml(self.CG, filename)
         self.patch_gml(filename)
+
+    # Returns std-deviation of agent degree
+    # Note: AGENT degree, not NODE degree
+    def get_degree_distribution(self):
+        if( self.G == None ):
+            self.graph_org()
+        numenv = len(self.trimmed[0].flatten())
+        degrees = []
+        for a in range(self.num_agents):
+            degree = 0
+            a += numenv
+            while( a < len(self.G) ):
+                degree += self.G.degree(a)
+                a += self.num_agents
+            degree /= float(self.layers)
+            degrees.append(degree)
+        return np.std(np.array(degrees))
 
     # Returns std-deviation of agent degree
     # Note: AGENT degree, not NODE degree

@@ -27,7 +27,6 @@ class Agent(object):
         self.received_messages = None
 
     def create_in_vec(self, indim):
-        print "Creating in vec for agent %d" % self.num
         self.indim = indim
         # If A0_1 is agent 15 and there's 10 agents, then A0_0 will be agent 5, but will be LISTEN_WEIGHT[prev_gen + num_env]
         prev_gen = self.num - self.numagents
@@ -38,8 +37,29 @@ class Agent(object):
             #sess.run(init)
             #print "Agent %d Created with listen_weights: %s" % (self.num, str(sess.run(self.listen_weights)))
 
-    def listen_cost(self, exponent):
-        return tf.reduce_sum(tf.abs(self.listen_weights))**exponent
+    def get_listen_weights(self, env_exponent_cost):
+        if( self.predecessor == None ):
+            return tf.reduce_sum(tf.abs(self.listen_weights))**env_exponent_cost
+        else:
+            return tf.add(tf.reduce_sum(tf.abs(self.listen_weights)), self.predecessor.get_listen_weights(env_exponent_cost))
+
+    def get_out_weights(self):
+        if( self.predecessor == None ):
+            return tf.reduce_sum(tf.abs(self.out_weights))
+        else:
+            return tf.add(tf.reduce_sum(tf.abs(self.out_weights)), self.predecessor.get_out_weights())
+
+    def listen_cost(self, exponent, env_exponent_cost):
+        if( self.predecessor == None ):
+            return (tf.reduce_sum(tf.abs(self.listen_weights))**env_exponent_cost)**exponent
+        else:
+            return tf.add(tf.reduce_sum(tf.abs(self.listen_weights)), self.predecessor.get_listen_weights(env_exponent_cost))**exponent
+
+    def speaking_cost(self, exponent):
+        if( self.predecessor == None ):
+        	return tf.reduce_sum(tf.abs(self.out_weights))**exponent
+        else:
+            return tf.add(tf.reduce_sum(tf.abs(self.out_weights)), self.predecessor.get_out_weights())**exponent
 
     def create_state_matrix(self, indim):
         self.indim = indim
