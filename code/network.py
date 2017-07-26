@@ -10,6 +10,7 @@ import time
 import os
 import networkx as nx
 plt.ion()
+from results import Results
 
 class Organization(object):
     def __init__(self, num_environment, num_agents, innoise,
@@ -236,48 +237,3 @@ class Organization(object):
         if( self.writer != None ):
             self.writer.close()
         return Results(training_res, listen_params, self.num_agents, self.num_environment, welfare)
-    
-class Results(object):
-    def __init__(self, training_res, listen_params, num_agents, num_env, welfare):
-        self.training_res = training_res
-        self.listen_params = listen_params
-        self.get_trimmed_listen_params()
-        self.welfare = welfare
-        self.num_agents = num_agents
-        self.num_env = num_env
-
-    def get_trimmed_listen_params(self, cutoff=.1):
-        self.trimmed = []
-        for lparams in self.listen_params:
-            maxp = np.max(lparams)
-            lparams = lparams * np.int_(lparams * lparams>cutoff*maxp)
-            self.trimmed.append(lparams)
-
-    def graph_cytoscape(self, filename, vspace=1, hspace=2):
-        numenv = len(self.trimmed[0].flatten())
-        G = nx.DiGraph()
-        for i in range(numenv):
-            G.add_node(i, color="b", name="E" + str(i), category="environment")
-        for aix, agent in enumerate(self.trimmed):
-            nodenum = int(numenv + aix)
-            prefix = aix % self.num_agents
-            layer = aix / self.num_agents
-            n = "A%d_%d" % (prefix, layer)
-            G.add_node(nodenum, color='r', name=n, category="agent")
-            # For each node, weights will be zero if the edge should be ignored
-            # and otherwise represent the cost of the edge
-            for dest, weight in enumerate(agent.flatten()):
-                # We need to offset the other end of the arrow, because agents
-                # after layer0 don't listen to env, and only listen to the layer
-                # immediately below them
-                if( layer > 0 ):
-                    dest += self.num_env
-                    dest += (self.num_agents * (layer-1))
-                if( abs(weight) > 0 ):
-                    G.add_edge(int(dest), nodenum, width=float(weight), weight=float(abs(weight)))
-        nx.write_graphml(G, filename)
-        #nx.write_gml(G, filename)
-            
-    def _get_pos(self, G):
-        numenv = len(self.trimmed[0].flatten())
-        numnodes = numenv + len(self.trimmed)
