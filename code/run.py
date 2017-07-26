@@ -7,6 +7,7 @@ import network, agent
 import numpy as np
 import pickle
 import copy
+import multiprocessing
 
 parameters = []
 
@@ -97,6 +98,20 @@ def runSim(parameters, iteration):
     print " * Saving better network (Welfare %f)" % res.welfare
     return res
 
+# Tensorflow is really bad about freeing memory, so we get around
+# the problem by running batches of tensorflow simulations in subprocesses.
+# Killing the subprocesses forcibly frees the memory, and keeps us from
+# using 200 GB on longer runs
+def runIterations(parameters, numIterations, filename):
+    res = None
+    for restart in range(10):
+        result = runSim(parameters, restart)
+        if( res == None or result.welfare < res.welfare ):
+            res = result
+    res.graph_cytoscape(filename + ".gml")
+    res.graph_collapsed_cytoscape(filename + "_collapsed.gml")
+    pickle.dump(res, open(filename + "_res.pickle", "wb"))
+
 if __name__ == "__main__":
     plt.ion()
     welfarefig = plt.figure()
@@ -109,17 +124,14 @@ if __name__ == "__main__":
     for i in range(10):
         p = copy.deepcopy(parameters[0])
         p["innoise"] += i
-        res = None
-        for restart in range(10):
-            result = runSim(p, i)
-            if( res == None or result.welfare < res.welfare ):
-                res = result
+        filename = "trial%d_welfare_%f" % (i+1, res.welfare)
+        proc = multiprocessing.Process(target=runIterations, args=(p, 10, filename,))
+        proc.start()
+        proc.join()
+        res = pickle.load(open(filename + "_res.pickle", "rb"))
         welfareax.plot(np.log(res.training_res), label=p["description"])
         listencostax.plot([p["innoise"]], [res.global_reaching_centrality()])
         degreeax.plot([p["innoise"]], [res.get_degree_distribution()])
-        filename = "trial%d_welfare_%f" % (i+1, res.welfare)
-        res.graph_cytoscape(filename + ".graphml")
-        pickle.dump(res, open(filename + "_res.pickle", "wb"))
     welfareax.set_title("Trials")
     welfareax.set_xlabel("Training Epoch")
     welfareax.set_ylabel("Log(Welfare)")
