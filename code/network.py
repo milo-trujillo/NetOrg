@@ -90,7 +90,7 @@ class Organization(object):
                 a.create_in_vec(self.num_agents)
                 a.create_state_matrix(self.num_agents + a.predecessor.indim)
                 a.create_out_matrix(self.num_agents + a.predecessor.indim)
-            indim += a.fanout
+            #indim += a.fanout
 
     def build_wave(self):
         """
