@@ -108,8 +108,6 @@ def runIterations(parameters, numIterations, filename):
         result = runSim(parameters, restart)
         if( res == None or result.welfare < res.welfare ):
             res = result
-    res.graph_cytoscape(filename + ".gml")
-    res.graph_collapsed_cytoscape(filename + "_collapsed.gml")
     pickle.dump(res, open(filename + "_res.pickle", "wb"))
 
 if __name__ == "__main__":
@@ -124,11 +122,13 @@ if __name__ == "__main__":
     for i in range(10):
         p = copy.deepcopy(parameters[0])
         p["innoise"] += i
-        filename = "trial%d_welfare_%f" % (i+1, res.welfare)
+        filename = "trial%d" % (i+1)
         proc = multiprocessing.Process(target=runIterations, args=(p, 10, filename,))
         proc.start()
         proc.join()
         res = pickle.load(open(filename + "_res.pickle", "rb"))
+	    res.graph_cytoscape(filename + "_welfare_" + str(res.welfare) + ".gml")
+	    res.graph_collapsed_cytoscape(filename + "_welfare_" + str(res.welfare) + "_collapsed.gml")
         welfareax.plot(np.log(res.training_res), label=p["description"])
         listencostax.plot([p["innoise"]], [res.global_reaching_centrality()])
         degreeax.plot([p["innoise"]], [res.get_degree_distribution()])
