@@ -109,22 +109,11 @@ class Organization(object):
 
             for i in range(0, self.num_agents + 1):
                 inenv = self.environment
-                incomm = None #?
 
                 # First wave
                 if( a.predecessor == None ):
-                    for inmsgs in self.outputs[i]:
-                        if incomm is None:
-                            incomm = inmsgs # Stays None if inmsgs blank, otherwise becomes inmsgs
-                        else:
-                            incomm =  tf.concat([incomm, inmsgs], 1) # If already a message, then concat
-                    commnoise = tf.random_normal([self.batchsize, a.indim - self.num_environment], stddev=a.noiseinstd, dtype=tf.float64)
-                    # Noise on inputs
-                    if incomm is not None:
-                        indata = tf.concat([inenv, incomm], 1) # batchsize x 
-                    else:
-                        indata = inenv
-                    innoise = tf.concat([envnoise, commnoise], 1)
+                    indata = inenv
+                    innoise = envnoise
                 # Second wave and up
                 else:
                     '''
