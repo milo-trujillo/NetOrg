@@ -84,7 +84,7 @@ if __name__ == "__main__":
     fig = plt.figure()
     ax = fig.add_subplot(1,1,1)
     res = None
-    iterations = 3000
+    iterations = 1000
     for i in range(len(parameters)):
         p = parameters[i]
         print "Running trial %d (%s)" % (i+1, p["description"])
@@ -103,7 +103,7 @@ if __name__ == "__main__":
         print " * Saving better network (Welfare %f)" % res.welfare
         ax.plot(np.log(res.training_res), label=p["description"])
         filename = "trial%d_welfare_%f" % (i+1, res.welfare)
-        res.graph_cytoscape(filename + ".graphml")
+        res.graph_cytoscape(filename + ".gml")
         pickle.dump(res, open(filename + "_res.pickle", "wb"))
     ax.set_title("Trials")
     ax.set_xlabel("Training Epoch")
