@@ -107,7 +107,7 @@ def runIterations(parameters, restarts, numIterations, filename):
         result = runSim(parameters, restart, numIterations)
         if( res == None or result.welfare < res.welfare ):
             res = result
-pickle.dump(res, open(filename + "_res.pickle", "wb"))
+    pickle.dump(res, open(filename + "_res.pickle", "wb"))
 
 if __name__ == "__main__":
     plt.ion()
