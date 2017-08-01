@@ -80,7 +80,7 @@ parameters.append(
     "description" : "Double Agents"}
 )
 
-def runSim(parameters, iteration, iterations, filename):
+def runSim(parameters, iteration, iterations):
     print "Running trial %d (%s)" % (iteration+1, parameters["description"])
     print " * Initializing network 1"
     orgA = network.Organization(optimizer="adadelta", **parameters)
@@ -95,6 +95,14 @@ def runSim(parameters, iteration, iterations, filename):
     else:
         res = resB
     print " * Saving better network (Welfare %f)" % res.welfare
+    return res
+
+def runIterations(parameters, restarts, numIterations, filename):
+    res = None
+    for restart in range(restarts):
+        result = runSim(parameters, restart, numIterations)
+        if( res == None or result.welfare < res.welfare ):
+            res = result
     pickle.dump(res, open(filename + "_res.pickle", "wb"))
 
 if __name__ == "__main__":
@@ -102,11 +110,11 @@ if __name__ == "__main__":
     fig = plt.figure()
     ax = fig.add_subplot(1,1,1)
     res = None
-    iterations = 3000
+    iterations = 1000
     for i in range(len(parameters)):
         p = parameters[i]
         filename = "trial%d" % (i+1)
-        proc = multiprocessing.Process(target=runSim, args=(p, i, iterations, filename,))
+        proc = multiprocessing.Process(target=runIterations, args=(p, 5, iterations, filename,))
         proc.start()
         proc.join()
         res = pickle.load(open(filename + "_res.pickle", "rb"))
