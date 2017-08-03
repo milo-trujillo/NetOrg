@@ -88,7 +88,7 @@ class Organization(object):
                 old_version = created.pop(0)
                 a.set_predecessor(old_version)
                 a.create_in_vec(self.num_agents)
-                a.create_state_matrix(self.num_agents + old_version.indim)
+                a.create_state_matrix(self.num_agents + old_version.indim + 1) # Plus one for bias
                 a.create_out_matrix(self.num_agents + old_version.indim)
 
     def build_wave(self):
@@ -127,6 +127,8 @@ class Organization(object):
             # Since listen weights is 1xin we get row wise division.
             if( a.predecessor != None ):
                 noisyin = tf.concat([a.predecessor.received_messages, noisyin], 1)
+            # Next add the bias
+            noisyin = tf.concat([tf.constant(1.0, dtype=tf.float64), noisyin], 1)
             a.set_received_messages(noisyin)
 
             state = tf.matmul(noisyin, a.state_weights)
