@@ -29,7 +29,6 @@ class Agent(object):
     def create_in_vec(self, indim):
         print "Creating in vec for agent %d" % self.num
         self.indim = indim
-        self.in_indim = indim
         # If A0_1 is agent 15 and there's 10 agents, then A0_0 will be agent 5, but will be LISTEN_WEIGHT[prev_gen + num_env]
         prev_gen = self.num - self.numagents
         prev_listen = prev_gen + self.numenv
@@ -43,18 +42,7 @@ class Agent(object):
         if( self.predecessor == None ):
             return tf.reduce_sum(tf.abs(self.listen_weights))**env_exponent_cost
         else:
-            # We want to assign a penalty to talking to people with different objectives
-            # here we've made the cost 2x
-            multiplier = np.empty([1, self.in_indim])
-            if( self.num % 2 == 0 ):
-                multiplier[0][0::2] = 1.0
-                multiplier[0][1::2] = 2.0
-            else:
-                multiplier[0][0::2] = 2.0
-                multiplier[0][1::2] = 1.0
-            mul = tf.constant(multiplier.T, dtype=tf.float64)
-            multiplied_weight = tf.matmul(tf.abs(self.listen_weights), mul)
-            return tf.add(tf.reduce_sum(multiplied_weight), self.predecessor.get_listen_weights(env_exponent_cost))
+            return tf.add(tf.reduce_sum(tf.abs(self.listen_weights)), self.predecessor.get_listen_weights(env_exponent_cost))
 
     def get_out_weights(self):
         if( self.predecessor == None ):
@@ -76,7 +64,6 @@ class Agent(object):
 
     def create_state_matrix(self, indim):
         self.indim = indim
-        self.state_indim = indim
         self.state_weights = tf.get_variable(dtype=tf.float64, name=str(self.num) + "state" +str(self.id), shape=[indim, self.statedim])
 
     def set_predecessor(self, agent):
@@ -87,7 +74,6 @@ class Agent(object):
 
     def create_out_matrix(self, indim):
         self.indim = indim
-        self.out_indim = indim
         self.out_weights = tf.get_variable(dtype=tf.float64, name=str(self.num) + "out" +str(self.id), shape=[indim, self.fanout])
         '''
         Indim is the number of independent messages we can send. We can send one
