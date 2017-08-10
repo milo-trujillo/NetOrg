@@ -81,7 +81,7 @@ class Organization(object):
             # First wave
             if( i < self.num_agents ):
                 a.create_in_vec(self.num_environment)
-                a.create_state_matrix(self.num_environment)
+                a.create_state_matrix(self.num_environment + 1) # Plus one for bias
                 a.create_out_matrix(self.num_environment)
             # Second wave and up
             else:
@@ -128,10 +128,10 @@ class Organization(object):
             if( a.predecessor != None ):
                 noisyin = tf.concat([a.predecessor.received_messages, noisyin], 1)
             # Next add the bias
-            noisyin = tf.concat([tf.constant(1.0, dtype=tf.float64), noisyin], 1)
+            biasedin = tf.concat([tf.constant(1.0, dtype=tf.float64, shape=[self.batchsize,1]), noisyin], 1)
             a.set_received_messages(noisyin)
 
-            state = tf.matmul(noisyin, a.state_weights)
+            state = tf.matmul(biasedin, a.state_weights)
             a.state = state
             self.states.append(state)
 
@@ -171,7 +171,7 @@ class Organization(object):
             for e in range(env):
                 if( a.num % 2 == e % 2 ):
                     goals.append(e)
-            realValue = tf.reduce_mean(tf.gather(self.environment, goals))
+            realValue = tf.reduce_mean(tf.gather(self.environment, goals), 1, keep_dims=True)
             differences.append(tf.reduce_mean(realValue - a.state)**exponent)
         differenceSum = tf.add_n(differences)
         cost = self.listening_cost() + self.speaking_cost()
