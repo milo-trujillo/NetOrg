@@ -105,7 +105,8 @@ class Organization(object):
             for msg in self.outputs:
                 indata = tf.concat([indata, msg], 1)
             envnoise = envnoise
-            commnoise = tf.random_normal([self.batchsize, self.num_agents], stddev=a.noiseinstd, dtype=tf.float64)
+            #commnoise = tf.random_normal([self.batchsize, self.num_agents], stddev=a.noiseinstd, dtype=tf.float64)
+            commnoise = tf.random_normal([self.batchsize, a.indim - self.num_environment], stddev=a.noiseinstd, dtype=tf.float64)
             innoise = tf.concat([envnoise, commnoise], 1)
 
             # Add noise inversely-proportional to listening strength
