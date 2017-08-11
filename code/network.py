@@ -76,20 +76,15 @@ class Organization(object):
 
     def build_agent_params(self):
         created = []
+        indim = self.num_environment
         for i, a in enumerate(self.agents):
             created.append(a)
             # First wave
-            if( i < self.num_agents ):
-                a.create_in_vec(self.num_environment)
-                a.create_state_matrix(self.num_environment)
-                a.create_out_matrix(self.num_environment)
-            # Second wave and up
-            else:
-                old_version = created.pop(0)
-                a.set_predecessor(old_version)
-                a.create_in_vec(self.num_agents)
-                a.create_state_matrix(self.num_agents + old_version.indim)
-                a.create_out_matrix(self.num_agents + old_version.indim)
+            a.create_in_vec(indim)
+            a.create_state_matrix(indim)
+            a.create_out_matrix(indim)
+            indim += a.fanout
+            # There is only one wave in this model
 
     def build_wave(self):
         """
@@ -106,20 +101,12 @@ class Organization(object):
             incomm = None
 
             # First wave
-            if( a.predecessor == None ):
-                indata = inenv
-                innoise = envnoise
-            # Second wave+
-            else:
-                '''
-                We're only listening to the first wave nodes (no environment),
-                so can skip all the inenv and envnoise steps
-                '''
-                loadLayerStart = ((a.num / self.num_agents) - 1) * self.num_agents
-                loadLayerEnd = (a.num / self.num_agents) * self.num_agents
-                indata = tf.concat(self.outputs[loadLayerStart:loadLayerEnd], 1)
-                commnoise = tf.random_normal([self.batchsize, self.num_agents], stddev=a.noiseinstd, dtype=tf.float64)
-                innoise = commnoise
+            indata = inenv
+            for msg in self.outputs:
+                indata = tf.concat([indata, msg], 1)
+            envnoise = envnoise
+            commnoise = tf.random_normal([self.batchsize, self.num_agents], stddev=a.noiseinstd, dtype=tf.float64)
+            innoise = tf.concat([envnoise, commnoise], 1)
 
             # Add noise inversely-proportional to listening strength
             noisyin = indata + innoise/a.listen_weights
@@ -159,7 +146,8 @@ class Organization(object):
     def loss(self, exponent=2):
         lastLayer = self.num_agents * (self.layers - 1)
         realValue = tf.reduce_mean(self.environment, 1, keep_dims=True)
-        differences = [tf.reduce_mean((realValue - a.state)**exponent) for a in self.agents[lastLayer:]]
+        # Note: We do not care about the welfare of the first two agents here
+        differences = [tf.reduce_mean((realValue - a.state)**exponent) for a in self.agents[lastLayer+2:]]
         differenceSum = tf.add_n(differences)
         cost = self.listening_cost() + self.speaking_cost()
         loss = differenceSum + cost
