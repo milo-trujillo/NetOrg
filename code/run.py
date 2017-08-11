@@ -12,14 +12,14 @@ parameters = []
 parameters.append(
     {"innoise" : 2, # Stddev on incomming messages
     "outnoise" : 2, # Stddev on outgoing messages
-    "num_environment" : 5, # Num univariate environment nodes
+    "num_environment" : 6, # Num univariate environment nodes
     "num_agents" : 10, # Number of Agents
     "fanout" : 1, # Distinct messages an agent can say
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 2, # Stddev on observing environment
-    "batchsize" : 100, # Training Batch Size
-    "layers"      : 3, # Number of layers per agent
+    "batchsize" : 1000, # Training Batch Size
+    "layers"      : 1, # Number of layers per agent
     "description" : "Baseline"}
 )
 
@@ -85,7 +85,8 @@ if __name__ == "__main__":
     ax = fig.add_subplot(1,1,1)
     res = None
     iterations = 3000
-    for i in range(len(parameters)):
+    #for i in range(len(parameters)):
+    for i in [0]:
         p = parameters[i]
         print "Running trial %d (%s)" % (i+1, p["description"])
         print " * Initializing network 1"
