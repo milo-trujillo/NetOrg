@@ -159,9 +159,8 @@ class Organization(object):
     # Gets the difference^2 of how far each agent is from real avg of variables
     # Note: We only look at the upper layer (A0_1, not A0_0) for determining welfare
     def loss(self, exponent=2):
-        lastLayer = self.num_agents * (self.layers - 1)
         realValue = tf.reduce_mean(self.environment, 1, keep_dims=True)
-        differences = [tf.reduce_mean((realValue - a.state)**exponent) for a in self.agents[lastLayer:]]
+        differences = [tf.reduce_mean((realValue - a.state)**exponent) for a in self.agents[self.first_layer:]]
         differenceSum = tf.add_n(differences)
         cost = self.listening_cost() + self.speaking_cost()
         loss = differenceSum + cost
