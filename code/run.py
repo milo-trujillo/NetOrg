@@ -12,7 +12,7 @@ parameters = []
 parameters.append(
     {"innoise" : 2, # Stddev on incomming messages
     "outnoise" : 2, # Stddev on outgoing messages
-    "num_environment" : 5, # Num univariate environment nodes
+    "num_environment" : 6, # Num univariate environment nodes
     "num_agents" : 10, # Number of Agents
     "fanout" : 1, # Distinct messages an agent can say
     "statedim" : 1, # Dimension of Agent State
@@ -26,7 +26,7 @@ parameters.append(
 parameters.append(
     {"innoise" : 2, # Stddev on incomming messages
     "outnoise" : 2, # Stddev on outgoing messages
-    "num_environment" : 5, # Num univariate environment nodes
+    "num_environment" : 6, # Num univariate environment nodes
     "num_agents" : 10, # Number of Agents
     "fanout" : 1, # Distinct messages an agent can say
     "statedim" : 1, # Dimension of Agent State
@@ -40,7 +40,7 @@ parameters.append(
 parameters.append(
     {"innoise" : 10, # Stddev on incomming messages
     "outnoise" : 2, # Stddev on outgoing messages
-    "num_environment" : 5, # Num univariate environment nodes
+    "num_environment" : 6, # Num univariate environment nodes
     "num_agents" : 10, # Number of Agents
     "fanout" : 1, # Distinct messages an agent can say
     "statedim" : 1, # Dimension of Agent State
@@ -54,7 +54,7 @@ parameters.append(
 parameters.append(
     {"innoise" : 2, # Stddev on incomming messages
     "outnoise" : 2, # Stddev on outgoing messages
-    "num_environment" : 10, # Num univariate environment nodes
+    "num_environment" : 12, # Num univariate environment nodes
     "num_agents" : 10, # Number of Agents
     "fanout" : 1, # Distinct messages an agent can say
     "statedim" : 1, # Dimension of Agent State
@@ -68,7 +68,7 @@ parameters.append(
 parameters.append(
     {"innoise" : 2, # Stddev on incomming messages
     "outnoise" : 2, # Stddev on outgoing messages
-    "num_environment" : 5, # Num univariate environment nodes
+    "num_environment" : 6, # Num univariate environment nodes
     "num_agents" : 20, # Number of Agents
     "fanout" : 1, # Distinct messages an agent can say
     "statedim" : 1, # Dimension of Agent State
