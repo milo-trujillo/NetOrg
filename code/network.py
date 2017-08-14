@@ -107,7 +107,7 @@ class Organization(object):
             incomm = None
 
             # First wave
-            if( a.predecessor == None ):
+            if( a.num < self.first_wave ):
                 indata = inenv
                 innoise = envnoise
             # Second wave+
@@ -120,7 +120,7 @@ class Organization(object):
                 loadLayerEnd = self.first_layer
                 msgdata = tf.concat(self.outputs[loadLayerStart:loadLayerEnd], 1)
                 indata = tf.concat([inenv, msgdata], 1)
-                commnoise = tf.random_normal([self.batchsize, self.num_agents], stddev=a.noiseinstd, dtype=tf.float64)
+                commnoise = tf.random_normal([self.batchsize, self.first_wave], stddev=a.noiseinstd, dtype=tf.float64)
                 innoise = tf.concat([envnoise, commnoise], 1)
 
             # Add noise inversely-proportional to listening strength
