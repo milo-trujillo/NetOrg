@@ -8,7 +8,7 @@ import re
 plt.ion()
 
 class Results(object):
-    def __init__(self, training_res, listen_params, num_agents, num_env, welfare):
+    def __init__(self, training_res, listen_params, num_agents, num_env, welfare, first_layer):
         self.training_res = training_res
         self.listen_params = listen_params
         self.get_trimmed_listen_params()
@@ -16,6 +16,7 @@ class Results(object):
         self.num_agents = num_agents
         self.num_env = num_env
         self.layers = len(listen_params) / num_agents
+        self.first_layer = first_layer
         self.G = None
         self.CG = None
 
@@ -72,7 +73,10 @@ class Results(object):
         for aix, agent in enumerate(self.trimmed):
             nodenum = int(numenv + aix)
             prefix = aix % self.num_agents
-            layer = aix / self.num_agents
+            if( aix < self.first_layer ):
+                layer = 0
+            else:
+                layer = 1
             n = "A%d_%d" % (prefix, layer)
             self.G.add_node(nodenum, color='r', name=n, category="agent", layer=layer)
             nodex = hoffset + hspace*prefix
@@ -85,15 +89,15 @@ class Results(object):
                 # We need to offset the other end of the arrow, because agents
                 # after layer0 don't listen to env, and only listen to the layer
                 # immediately below them
-                if( layer > 0 ):
-                    dest += self.num_env
-                    dest += (self.num_agents * (layer-1))
+                #if( layer > 0 ):
+                    #dest += self.num_env
+                    #dest += (self.num_agents * (layer-1))
                 if( abs(weight) > 0 ):
                     self.G.add_edge(int(dest), nodenum, width=float(weight),
                         weight=float(abs(weight)))
-            if( layer > 0 ):
-                predecessor = int(numenv + aix - self.num_agents)
-                self.G.add_edge(predecessor, nodenum, width=0, weight=0)
+            #if( layer > 0 ):
+                #predecessor = int(numenv + aix - self.num_agents)
+                #self.G.add_edge(predecessor, nodenum, width=0, weight=0)
 
     def graph_collapsed_org(self):
         numenv = len(self.trimmed[0].flatten())

@@ -217,5 +217,5 @@ class Organization(object):
             print "Listen_params now set to: " + str(listen_params)
         if( self.writer != None ):
             self.writer.close()
-        return Results(training_res, listen_params, self.num_agents, self.num_environment, welfare)
+        return Results(training_res, listen_params, self.num_agents, self.num_environment, welfare, self.first_layer)
     
