@@ -18,8 +18,8 @@ parameters.append(
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 2, # Stddev on observing environment
-    "batchsize" : 100, # Training Batch Size
-    "layers"      : 3, # Number of layers per agent
+    "batchsize" : 1000, # Training Batch Size
+    "layers"      : 2, # Number of layers per agent
     "description" : "Baseline"}
 )
 
@@ -32,8 +32,8 @@ parameters.append(
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 5, # Stddev on observing environment
-    "batchsize" : 100, # Training Batch Size
-    "layers"      : 3, # Number of layers per agent
+    "batchsize" : 1000, # Training Batch Size
+    "layers"      : 2, # Number of layers per agent
     "description" : "Environment Expensive"}
 )
 
@@ -46,8 +46,8 @@ parameters.append(
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 2, # Stddev on observing environment
-    "batchsize" : 100, # Training Batch Size
-    "layers"      : 3, # Number of layers per agent
+    "batchsize" : 1000, # Training Batch Size
+    "layers"      : 2, # Number of layers per agent
     "description" : "Messages Expensive"}
 )
 
@@ -60,8 +60,8 @@ parameters.append(
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 2, # Stddev on observing environment
-    "batchsize" : 100, # Training Batch Size
-    "layers"      : 3, # Number of layers per agent
+    "batchsize" : 1000, # Training Batch Size
+    "layers"      : 2, # Number of layers per agent
     "description" : "Double Environment"}
 )
 
@@ -74,8 +74,8 @@ parameters.append(
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
     "envobsnoise" : 2, # Stddev on observing environment
-    "batchsize" : 100, # Training Batch Size
-    "layers"      : 3, # Number of layers per agent
+    "batchsize" : 1000, # Training Batch Size
+    "layers"      : 2, # Number of layers per agent
     "description" : "Double Agents"}
 )
 
