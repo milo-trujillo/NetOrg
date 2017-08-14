@@ -23,6 +23,7 @@ class Organization(object):
         self.batchsize = batchsize
         self.envobsnoise = envobsnoise
         self.layers = layers
+        self.first_layer = 2 # How many agents in the first mid-layer
         self.agents = []
         for i in range(num_agents * self.layers):
             self.agents.append(Agent(innoise, outnoise, i, fanout, statedim, batchsize, num_agents, num_environment))
@@ -79,17 +80,17 @@ class Organization(object):
         for i, a in enumerate(self.agents):
             created.append(a)
             # First wave
-            if( i < self.num_agents ):
+            if( i < self.first_layer ):
                 a.create_in_vec(self.num_environment)
                 a.create_state_matrix(self.num_environment)
                 a.create_out_matrix(self.num_environment)
             # Second wave and up
             else:
-                old_version = created.pop(0)
-                a.set_predecessor(old_version)
-                a.create_in_vec(self.num_agents)
-                a.create_state_matrix(self.num_agents + old_version.indim)
-                a.create_out_matrix(self.num_agents + old_version.indim)
+                #old_version = created.pop(0)
+                #a.set_predecessor(old_version)
+                a.create_in_vec(self.num_environment + self.first_layer)
+                a.create_state_matrix(self.num_environment + self.first_layer)
+                a.create_out_matrix(self.num_environment + self.first_layer)
 
     def build_wave(self):
         """
@@ -115,11 +116,12 @@ class Organization(object):
                 We're only listening to the first wave nodes (no environment),
                 so can skip all the inenv and envnoise steps
                 '''
-                loadLayerStart = ((a.num / self.num_agents) - 1) * self.num_agents
-                loadLayerEnd = (a.num / self.num_agents) * self.num_agents
-                indata = tf.concat(self.outputs[loadLayerStart:loadLayerEnd], 1)
+                loadLayerStart = 0
+                loadLayerEnd = self.first_layer
+                msgdata = tf.concat(self.outputs[loadLayerStart:loadLayerEnd], 1)
+                indata = tf.concat([inenv, msgdata], 1)
                 commnoise = tf.random_normal([self.batchsize, self.num_agents], stddev=a.noiseinstd, dtype=tf.float64)
-                innoise = commnoise
+                innoise = tf.concat([envnoise, commnoise], 1)
 
             # Add noise inversely-proportional to listening strength
             noisyin = indata + innoise/a.listen_weights
