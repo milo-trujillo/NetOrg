@@ -7,6 +7,7 @@ import network, agent
 import numpy as np
 import pickle
 import multiprocessing
+import copy
 
 parameters = []
 
@@ -107,12 +108,16 @@ def runIterations(parameters, restarts, numIterations, filename):
 
 if __name__ == "__main__":
     plt.ion()
-    fig = plt.figure()
-    ax = fig.add_subplot(1,1,1)
+    welfarefig = plt.figure()
+    welfareax = welfarefig.add_subplot(1,1,1)
+    resultsfig = plt.figure()
+    resultsax = resultsfig.add_subplot(1,1,1)
     res = None
     iterations = 3000
-    for i in range(len(parameters)):
-        p = parameters[i]
+    #for i in range(len(parameters)):
+    for i in range(40):
+        p = copy.deepcopy(parameters[0])
+        p["num_environment"] += i
         filename = "trial%d" % (i+1)
         proc = multiprocessing.Process(target=runIterations, args=(p, 3, iterations, filename,))
         proc.start()
@@ -121,9 +126,16 @@ if __name__ == "__main__":
         filename = "trial%d_welfare_%f" % (i+1, res.welfare)
         res.graph_cytoscape(filename + ".gml")
         res.graph_collapsed_cytoscape(filename + "_collapsed.gml")
-        ax.plot(np.log(res.training_res), label=p["description"])
-    ax.set_title("Trials")
-    ax.set_xlabel("Training Epoch")
-    ax.set_ylabel("Log(Welfare)")
-    ax.legend()
-    fig.savefig("trials.png")
+        welfareax.plot(np.log(res.training_res), label=p["description"])
+        resultsax.plot(p["num_environment"], res.welfareCost, label="Communication Cost")
+        resultsax.plot(p["num_environment"], res.welfareDifference, label="Difference from Optimum")
+    welfareax.set_title("Trials")
+    welfareax.set_xlabel("Training Epoch")
+    welfareax.set_ylabel("Log(Welfare)")
+    welfareax.legend()
+    welfarefig.savefig("trials.png")
+    resultsax.set_title("Trials")
+    resultsax.set_xlabel("Environment Variables")
+    resultsax.set_ylabel("Welfare")
+    resultsax.legend()
+    resultsfig.savefig("trial_results.png")

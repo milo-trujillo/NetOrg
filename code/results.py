@@ -8,11 +8,13 @@ import re
 plt.ion()
 
 class Results(object):
-    def __init__(self, training_res, listen_params, num_agents, num_env, welfare):
+    def __init__(self, training_res, listen_params, num_agents, num_env, welfare, difference, cost):
         self.training_res = training_res
         self.listen_params = listen_params
         self.get_trimmed_listen_params()
         self.welfare = welfare
+        self.welfareDifference = difference
+        self.welfareCost = cost
         self.num_agents = num_agents
         self.num_env = num_env
         self.layers = len(listen_params) / num_agents

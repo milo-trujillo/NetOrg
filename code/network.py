@@ -154,6 +154,19 @@ class Organization(object):
         loss = differenceSum + cost
         return loss
 
+    # For helping graph welfare
+    def welfareDifference(self, exponent=2):
+        lastLayer = self.num_agents * (self.layers - 1)
+        realValue = tf.reduce_mean(self.environment, 1, keep_dims=True)
+        # Note: We do not care about the welfare of the first two agents here
+        differences = [tf.reduce_mean((realValue - a.state)**exponent) for a in self.agents[lastLayer+2:]]
+        differenceSum = tf.add_n(differences)
+        return differenceSum
+
+    # For helping graph welfare
+    def welfareCost(self, exponent=2):
+        return self.listening_cost() + self.speaking_cost()
+
     def train(self, niters, lrinit=None, iplot=False, verbose=False):
         if( lrinit == None ):
             lrinit = self.start_learning_rate
@@ -200,9 +213,13 @@ class Organization(object):
         # Get the strategy from all agents, which is the "network configuration" at the end
         listen_params = self.sess.run([a.listen_weights for a in self.agents])
         welfare = self.sess.run(self.objective)
+        welfareDiffGen = welfareDifference()
+        welfareCostGen = welfareCost()
+        welfareDiff = self.sess.run(welfareDiffGen)
+        welfareCost = self.sess.run(welfareCostGen)
         if( verbose ):
             print "Listen_params now set to: " + str(listen_params)
         if( self.writer != None ):
             self.writer.close()
-        return Results(training_res, listen_params, self.num_agents, self.num_environment, welfare)
+        return Results(training_res, listen_params, self.num_agents, self.num_environment, welfare, welfareDiff, welfareCost)
     
