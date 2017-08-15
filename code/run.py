@@ -6,6 +6,7 @@ from matplotlib import pyplot as plt
 import network, agent
 import numpy as np
 import pickle
+import multiprocessing
 
 parameters = []
 
@@ -79,33 +80,48 @@ parameters.append(
     "description" : "Double Agents"}
 )
 
+def runSim(parameters, iteration, iterations):
+    print "Running trial %d (%s)" % (iteration+1, parameters["description"])
+    print " * Initializing network 1"
+    orgA = network.Organization(optimizer="adadelta", **parameters)
+    print " * Training network 1"
+    resA = orgA.train(iterations, iplot=False, verbose=True)
+    print " * Initializing network 2"
+    orgB = network.Organization(optimizer="rmsprop", **parameters)
+    print " * Training network 2"
+    resB = orgB.train(iterations, iplot=False, verbose=True)
+    if( resA.welfare < resB.welfare ):
+        res = resA
+    else:
+        res = resB
+    print " * Saving better network (Welfare %f)" % res.welfare
+    return res
+
+def runIterations(parameters, restarts, numIterations, filename):
+    res = None
+    for restart in range(restarts):
+        result = runSim(parameters, restart, numIterations)
+        if( res == None or result.welfare < res.welfare ):
+            res = result
+    pickle.dump(res, open(filename + "_res.pickle", "wb"))
+
 if __name__ == "__main__":
     plt.ion()
     fig = plt.figure()
     ax = fig.add_subplot(1,1,1)
     res = None
     iterations = 3000
-    #for i in range(len(parameters)):
-    for i in [0]:
+    for i in range(len(parameters)):
         p = parameters[i]
-        print "Running trial %d (%s)" % (i+1, p["description"])
-        print " * Initializing network 1"
-        orgA = network.Organization(optimizer="adadelta", **p)
-        print " * Training network 1"
-        resA = orgA.train(iterations, iplot=False, verbose=True)
-        print " * Initializing network 2"
-        orgB = network.Organization(optimizer="rmsprop", **p)
-        print " * Training network 2"
-        resB = orgB.train(iterations, iplot=False, verbose=True)
-        if( resA.welfare < resB.welfare ):
-            res = resA
-        else:
-            res = resB
-        print " * Saving better network (Welfare %f)" % res.welfare
-        ax.plot(np.log(res.training_res), label=p["description"])
+        filename = "trial%d" % (i+1)
+        proc = multiprocessing.Process(target=runIterations, args=(p, 3, iterations, filename,))
+        proc.start()
+        proc.join()
+        res = pickle.load(open(filename + "_res.pickle", "rb"))
         filename = "trial%d_welfare_%f" % (i+1, res.welfare)
-        res.graph_cytoscape(filename + ".graphml")
-        pickle.dump(res, open(filename + "_res.pickle", "wb"))
+        res.graph_cytoscape(filename + ".gml")
+        res.graph_collapsed_cytoscape(filename + "_collapsed.gml")
+        ax.plot(np.log(res.training_res), label=p["description"])
     ax.set_title("Trials")
     ax.set_xlabel("Training Epoch")
     ax.set_ylabel("Log(Welfare)")
