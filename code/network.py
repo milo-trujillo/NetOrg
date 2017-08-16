@@ -214,8 +214,8 @@ class Organization(object):
         # Get the strategy from all agents, which is the "network configuration" at the end
         listen_params = self.sess.run([a.listen_weights for a in self.agents])
         welfare = self.sess.run(self.objective)
-        welfareDiffGen = welfareDifference()
-        welfareCostGen = welfareCost()
+        welfareDiffGen = self.welfareDifference()
+        welfareCostGen = self.welfareCost()
         welfareDiff = self.sess.run(welfareDiffGen)
         welfareCost = self.sess.run(welfareCostGen)
         if( verbose ):
