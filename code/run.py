@@ -114,6 +114,12 @@ if __name__ == "__main__":
     resultsax = resultsfig.add_subplot(1,1,1)
     res = None
     iterations = 3000
+
+    xs = []
+    costYs = []
+    diffYs = []
+    wellYs = []
+
     #for i in range(len(parameters)):
     for i in range(40):
         p = copy.deepcopy(parameters[0])
@@ -127,8 +133,11 @@ if __name__ == "__main__":
         res.graph_cytoscape(filename + ".gml")
         res.graph_collapsed_cytoscape(filename + "_collapsed.gml")
         welfareax.plot(np.log(res.training_res), label=p["description"])
-        resultsax.plot(p["num_environment"], res.welfareCost, label="Communication Cost")
-        resultsax.plot(p["num_environment"], res.welfareDifference, label="Difference from Optimum")
+        xs += [p["num_environment"]]
+        costYs += [res.welfareCost]
+        diffYs += [res.welfareDifference]
+    resultsax.plot(xs, costYs, label="Communication Cost")
+    resultsax.plot(xs, diffYs, label="Difference from Optimum")
     welfareax.set_title("Trials")
     welfareax.set_xlabel("Training Epoch")
     welfareax.set_ylabel("Log(Welfare)")
