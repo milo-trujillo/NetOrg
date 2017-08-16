@@ -16,6 +16,7 @@ parameters.append(
     "outnoise" : 2, # Stddev on outgoing messages
     "num_environment" : 6, # Num univariate environment nodes
     "num_agents" : 10, # Number of Agents
+    "num_managers" : 2, # Number of Agents that do not contribute
     "fanout" : 1, # Distinct messages an agent can say
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
@@ -30,6 +31,7 @@ parameters.append(
     "outnoise" : 2, # Stddev on outgoing messages
     "num_environment" : 5, # Num univariate environment nodes
     "num_agents" : 10, # Number of Agents
+    "num_managers" : 2, # Number of Agents that do not contribute
     "fanout" : 1, # Distinct messages an agent can say
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
@@ -44,6 +46,7 @@ parameters.append(
     "outnoise" : 2, # Stddev on outgoing messages
     "num_environment" : 5, # Num univariate environment nodes
     "num_agents" : 10, # Number of Agents
+    "num_managers" : 2, # Number of Agents that do not contribute
     "fanout" : 1, # Distinct messages an agent can say
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
@@ -58,6 +61,7 @@ parameters.append(
     "outnoise" : 2, # Stddev on outgoing messages
     "num_environment" : 10, # Num univariate environment nodes
     "num_agents" : 10, # Number of Agents
+    "num_managers" : 2, # Number of Agents that do not contribute
     "fanout" : 1, # Distinct messages an agent can say
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
@@ -72,6 +76,7 @@ parameters.append(
     "outnoise" : 2, # Stddev on outgoing messages
     "num_environment" : 5, # Num univariate environment nodes
     "num_agents" : 20, # Number of Agents
+    "num_managers" : 2, # Number of Agents that do not contribute
     "fanout" : 1, # Distinct messages an agent can say
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
@@ -123,7 +128,7 @@ if __name__ == "__main__":
     #for i in range(len(parameters)):
     for i in range(40):
         p = copy.deepcopy(parameters[0])
-        p["num_environment"] += i
+        p["num_agents"] += i
         filename = "trial%d" % (i+1)
         proc = multiprocessing.Process(target=runIterations, args=(p, 3, iterations, filename,))
         proc.start()
@@ -133,7 +138,7 @@ if __name__ == "__main__":
         res.graph_cytoscape(filename + ".gml")
         res.graph_collapsed_cytoscape(filename + "_collapsed.gml")
         welfareax.plot(np.log(res.training_res), label=p["description"])
-        xs += [p["num_environment"]]
+        xs += [p["num_agents"]]
         costYs += [res.welfareCost]
         diffYs += [res.welfareDifference]
     resultsax.plot(xs, costYs, label="Communication Cost")
@@ -144,7 +149,7 @@ if __name__ == "__main__":
     welfareax.legend()
     welfarefig.savefig("trials.png")
     resultsax.set_title("Trials")
-    resultsax.set_xlabel("Environment Variables")
+    resultsax.set_xlabel("Agents")
     resultsax.set_ylabel("Welfare")
     resultsax.legend()
     resultsfig.savefig("trial_results.png")

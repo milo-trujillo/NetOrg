@@ -13,13 +13,14 @@ plt.ion()
 from results import Results
 
 class Organization(object):
-    def __init__(self, num_environment, num_agents, innoise,
+    def __init__(self, num_environment, num_agents, num_managers, innoise,
                      outnoise, fanout, statedim, envnoise, envobsnoise,
                      batchsize, optimizer, layers, randomSeed=False, tensorboard=None, **kwargs):
         if( randomSeed == False ):
             tf.set_random_seed(634)
         self.num_environment = num_environment
         self.num_agents = num_agents
+        self.num_managers = num_managers
         self.batchsize = batchsize
         self.envobsnoise = envobsnoise
         self.layers = layers
@@ -148,7 +149,7 @@ class Organization(object):
         lastLayer = self.num_agents * (self.layers - 1)
         realValue = tf.reduce_mean(self.environment, 1, keep_dims=True)
         # Note: We do not care about the welfare of the first two agents here
-        differences = [tf.reduce_mean((realValue - a.state)**exponent) for a in self.agents[lastLayer+2:]]
+        differences = [tf.reduce_mean((realValue - a.state)**exponent) for a in self.agents[lastLayer+self.num_managers:]]
         differenceSum = tf.add_n(differences)
         cost = self.listening_cost() + self.speaking_cost()
         loss = differenceSum + cost
@@ -159,7 +160,7 @@ class Organization(object):
         lastLayer = self.num_agents * (self.layers - 1)
         realValue = tf.reduce_mean(self.environment, 1, keep_dims=True)
         # Note: We do not care about the welfare of the first two agents here
-        differences = [tf.reduce_mean((realValue - a.state)**exponent) for a in self.agents[lastLayer+2:]]
+        differences = [tf.reduce_mean((realValue - a.state)**exponent) for a in self.agents[lastLayer+self.num_managers:]]
         differenceSum = tf.add_n(differences)
         return differenceSum
 
