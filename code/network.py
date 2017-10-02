@@ -27,8 +27,9 @@ class Organization(object):
         self.agents = []
         for i in range(num_agents * self.layers):
             self.agents.append(Agent(innoise, outnoise, i, fanout, statedim, batchsize, num_agents, num_environment))
-        self.environment = tf.random_normal([self.batchsize, num_environment],
-                                            mean=0, stddev = envnoise, dtype=tf.float64)
+        self.environment = tf.random_normal([self.batchsize, num_environment], mean=0.0, stddev = 1.0, dtype=tf.float64))
+        greater = tf.greater(self.environment, zero)
+        self.environment = tf.where(greater, tf.ones_like(self.environment), tf.zeros_like(self.environment))
         self.build_org()
         self.objective  =  self.loss()
         self.learning_rate = tf.placeholder(tf.float64)
@@ -118,13 +119,13 @@ class Organization(object):
                 noisyin = tf.concat([a.predecessor.received_messages, noisyin], 1)
             a.set_received_messages(noisyin)
 
-            state = tf.matmul(noisyin, a.state_weights)
+            state = tf.tanh(tf.matmul(noisyin, a.state_weights))
             a.state = state
             self.states.append(state)
 
             outnoise = tf.random_normal([self.batchsize, a.fanout], stddev=a.noiseoutstd, dtype=tf.float64)
             prenoise = tf.matmul(noisyin, a.out_weights)
-            output = prenoise + outnoise
+            output = tf.tanh(prenoise + outnoise)
             self.outputs.append(output)
             # output is a vector with dimensions [1, batchsize]
             #with tf.Session() as sess:
@@ -133,34 +134,90 @@ class Organization(object):
                 #res = sess.run(output)
                 #print "Appending output for agent " + str(i) + ": " + str(res)
 
-    def listening_cost(self, exponent=2):
-        summed = [x.listen_cost(exponent) for x in self.agents]
+    # Barrier function for listening costs
+    def listening_cost(self, steepness=1.0, barrier=3.0, offset=2.0):
+        steep = tf.neg(tf.convert_to_tensor(steepness, dtype=tf.float32))
+        barrier_t = tf.convert_to_tensor(barrier, dtype=tf.float32)
+        offset_t = tf.convert_to_tensor(offset, dtype=tf.float32)
+        summed = []
+        for x in self.agents:
+            weight = x.listen_cost()
+            border = tf.subtract(tf.multiply(steep, tf.log(tf.subtract(barrier_t, speak_sum))), offset_t)
+            summed += [tf.maximum(tf.convert_to_tensor(0.0, dtype=tf.float32), border)]
         totalc = tf.add_n(summed)
         return totalc
 
-    def speaking_cost(self, exponent=2):
-        summed = [tf.reduce_sum(tf.abs(x.out_weights))**exponent for x in self.agents]
+    # Barrier function for speaking costs
+    # speaking cost == 0 unless someone speaks too much, then shoots to
+    # near infinity. This simulates a hard constraint on speaking
+    # using only soft-constraints, which are more natural in Tensorflow.
+    # Yes, I'm saying this is the *more* natural solution.
+    def speaking_cost(self, steepness=1.0, barrier=3.0, offset=2.0):
+        # This is disgusting looking, but comes out to:
+        #     cost = (-steepness * log(barrier - sum_of_weights)) - offset
+        # We pin the cost to 0+ so we never get negative costs, then we add
+        # costs per agent together and return "total speaking cost for network"
+        summed = []
+        steep = tf.neg(tf.convert_to_tensor(steepness, dtype=tf.float32))
+        barrier_t = tf.convert_to_tensor(barrier, dtype=tf.float32)
+        offset_t = tf.convert_to_tensor(offset, dtype=tf.float32)
+        for x in self.agents:
+            speak_sum = tf.reduce_sum(tf.abs(x.out_weights))
+            border = tf.subtract(tf.multiply(steep, tf.log(tf.subtract(barrier_t, speak_sum))), offset_t)
+            summed += [tf.maximum(tf.convert_to_tensor(0.0, dtype=tf.float32), border)]
         totalc = tf.add_n(summed)
         return totalc
 
-    # Gets the difference^2 of how far each agent is from real avg of variables
-    # Note: We only look at the upper layer (A0_1, not A0_0) for determining welfare
+    # We look for a sequence of three 1s from the env in a row
+    # If (sequence && agent returned 1) || (!sequence && agent returned 0)
+    # then welfare improves. Else welfare worsened.
+    # Note: We only look at non middle-managers for accuracy, but all for costs
     def loss(self, exponent=2):
         lastLayer = self.num_agents * (self.layers - 1)
-        realValue = tf.reduce_mean(self.environment, 1, keep_dims=True)
-        # Note: We do not care about the welfare of the first two agents here
-        differences = [tf.reduce_mean((realValue - a.state)**exponent) for a in self.agents[lastLayer+self.num_managers:]]
+        pattern = self.pattern_detected()
+        incorrect = tf.Variable(0.0, dtype=tf.float32)
+        zero = tf.convert_to_tensor(0.0, dtype=tf.float32)
+        one = tf.convert_to_tensor(1.0, dtype=tf.float32)
+        differences = []
+        for a in self.agents[lastLayer+self.num_managers:]:
+            match_yes = tf.logical_and(pattern, tf.equals(a.state, 1.0))
+            match_no = tf.logical_and(tf.logical_not(pattern), tf.equals(a.state, 0.0))
+            match = tf.logical_or(match_yes, match_no)
+            differences += [tf.cond(match, lambda: zero, lambda: one)]
         differenceSum = tf.add_n(differences)
         cost = self.listening_cost() + self.speaking_cost()
         loss = differenceSum + cost
         return loss
 
+    # Returns a tensor that yields true if env has three 1s in a row
+    # yields false otherwise
+    def pattern_detected(self):
+        one = tf.convert_to_tensor(1.0, tf.float64)
+        true = tf.convert_to_tensor(True, tf.bool)
+        false = tf.convert_to_tensor(False, tf.bool)
+        pattern = false
+        for i in range(0, self.num_environment - 2):
+            val1 = tf.equal(self.environment[i+0, :], one)
+            val2 = tf.equal(self.environment[i+1, :], one)
+            val3 = tf.equal(self.environment[i+2, :], one)
+            p = [tf.logical_and(tf.logical_and(val1, val2), val3)]
+            isPattern = tf.equal(p, true)
+            pattern = tf.cond(isPattern, lambda: true, lambda: pattern)
+        return pattern
+
     # For helping graph welfare
     def welfareDifference(self, exponent=2):
         lastLayer = self.num_agents * (self.layers - 1)
-        realValue = tf.reduce_mean(self.environment, 1, keep_dims=True)
-        # Note: We do not care about the welfare of the first two agents here
-        differences = [tf.reduce_mean((realValue - a.state)**exponent) for a in self.agents[lastLayer+self.num_managers:]]
+        pattern = self.pattern_detected()
+        incorrect = tf.Variable(0.0, dtype=tf.float32)
+        zero = tf.convert_to_tensor(0.0, dtype=tf.float32)
+        one = tf.convert_to_tensor(1.0, dtype=tf.float32)
+        differences = []
+        for a in self.agents[lastLayer+self.num_managers:]:
+            match_yes = tf.logical_and(pattern, tf.equals(a.state, 1.0))
+            match_no = tf.logical_and(tf.logical_not(pattern), tf.equals(a.state, 0.0))
+            match = tf.logical_or(match_yes, match_no)
+            differences += [tf.cond(match, lambda: zero, lambda: one)]
         differenceSum = tf.add_n(differences)
         return differenceSum
 
