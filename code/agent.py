@@ -38,8 +38,8 @@ class Agent(object):
             #sess.run(init)
             #print "Agent %d Created with listen_weights: %s" % (self.num, str(sess.run(self.listen_weights)))
 
-    def listen_cost(self, exponent):
-        return tf.reduce_sum(tf.abs(self.listen_weights))**exponent
+    def listen_cost(self):
+        return tf.reduce_sum(tf.abs(self.listen_weights))
 
     def create_state_matrix(self, indim):
         self.indim = indim
