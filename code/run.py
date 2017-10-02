@@ -16,7 +16,7 @@ parameters.append(
     "outnoise" : 2, # Stddev on outgoing messages
     "num_environment" : 6, # Num univariate environment nodes
     "num_agents" : 10, # Number of Agents
-    "num_managers" : 2, # Number of Agents that do not contribute
+    "num_managers" : 9, # Number of Agents that do not contribute
     "fanout" : 1, # Distinct messages an agent can say
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
@@ -31,7 +31,7 @@ parameters.append(
     "outnoise" : 2, # Stddev on outgoing messages
     "num_environment" : 5, # Num univariate environment nodes
     "num_agents" : 10, # Number of Agents
-    "num_managers" : 2, # Number of Agents that do not contribute
+    "num_managers" : 9, # Number of Agents that do not contribute
     "fanout" : 1, # Distinct messages an agent can say
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
@@ -46,7 +46,7 @@ parameters.append(
     "outnoise" : 2, # Stddev on outgoing messages
     "num_environment" : 5, # Num univariate environment nodes
     "num_agents" : 10, # Number of Agents
-    "num_managers" : 2, # Number of Agents that do not contribute
+    "num_managers" : 9, # Number of Agents that do not contribute
     "fanout" : 1, # Distinct messages an agent can say
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
@@ -61,7 +61,7 @@ parameters.append(
     "outnoise" : 2, # Stddev on outgoing messages
     "num_environment" : 10, # Num univariate environment nodes
     "num_agents" : 10, # Number of Agents
-    "num_managers" : 2, # Number of Agents that do not contribute
+    "num_managers" : 9, # Number of Agents that do not contribute
     "fanout" : 1, # Distinct messages an agent can say
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
@@ -76,7 +76,7 @@ parameters.append(
     "outnoise" : 2, # Stddev on outgoing messages
     "num_environment" : 5, # Num univariate environment nodes
     "num_agents" : 20, # Number of Agents
-    "num_managers" : 2, # Number of Agents that do not contribute
+    "num_managers" : 19, # Number of Agents that do not contribute
     "fanout" : 1, # Distinct messages an agent can say
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state
@@ -130,9 +130,10 @@ if __name__ == "__main__":
         p = copy.deepcopy(parameters[0])
         p["num_agents"] += i
         filename = "trial%d" % (i+1)
-        proc = multiprocessing.Process(target=runIterations, args=(p, 3, iterations, filename,))
-        proc.start()
-        proc.join()
+        #proc = multiprocessing.Process(target=runIterations, args=(p, 3, iterations, filename,))
+        #proc.start()
+        #proc.join()
+        runIterations(p, 3, iterations, filename)
         res = pickle.load(open(filename + "_res.pickle", "rb"))
         filename = "trial%d_welfare_%f" % (i+1, res.welfare)
         res.graph_cytoscape(filename + ".gml")
