@@ -27,11 +27,12 @@ class Organization(object):
         self.agents = []
         for i in range(num_agents * self.layers):
             self.agents.append(Agent(innoise, outnoise, i, fanout, statedim, batchsize, num_agents, num_environment))
-        self.environment = tf.random_normal([self.batchsize, num_environment], mean=0.0, stddev = 1.0, dtype=tf.float64))
+        self.environment = tf.random_normal([self.batchsize, num_environment], mean=0.0, stddev=1.0, dtype=tf.float64)
+        zero = tf.convert_to_tensor(0.0, tf.float64)
         greater = tf.greater(self.environment, zero)
         self.environment = tf.where(greater, tf.ones_like(self.environment), tf.zeros_like(self.environment))
         self.build_org()
-        self.objective  =  self.loss()
+        self.objective = self.loss()
         self.learning_rate = tf.placeholder(tf.float64)
 
         # Justin used the "AdadeltaOptimizer"
@@ -119,13 +120,21 @@ class Organization(object):
                 noisyin = tf.concat([a.predecessor.received_messages, noisyin], 1)
             a.set_received_messages(noisyin)
 
+            # Let's pin state to either 0 or 1, for "pattern or no"
             state = tf.tanh(tf.matmul(noisyin, a.state_weights))
+            zero = tf.convert_to_tensor(0.0, tf.float64)
+            state = tf.where(tf.greater(state, zero), tf.ones_like(state), tf.zeros_like(state))
+
             a.state = state
             self.states.append(state)
 
             outnoise = tf.random_normal([self.batchsize, a.fanout], stddev=a.noiseoutstd, dtype=tf.float64)
             prenoise = tf.matmul(noisyin, a.out_weights)
+
+            # Similarly, we'll pin our output message to either zero or one
             output = tf.tanh(prenoise + outnoise)
+            output = tf.where(tf.greater(output, zero), tf.ones_like(output), tf.zeros_like(output))
+
             self.outputs.append(output)
             # output is a vector with dimensions [1, batchsize]
             #with tf.Session() as sess:
@@ -136,14 +145,20 @@ class Organization(object):
 
     # Barrier function for listening costs
     def listening_cost(self, steepness=1.0, barrier=3.0, offset=2.0):
-        steep = tf.neg(tf.convert_to_tensor(steepness, dtype=tf.float32))
-        barrier_t = tf.convert_to_tensor(barrier, dtype=tf.float32)
-        offset_t = tf.convert_to_tensor(offset, dtype=tf.float32)
+        neg = tf.convert_to_tensor(-1.0, dtype=tf.float64)
+        steep = tf.multiply(neg, tf.convert_to_tensor(steepness, dtype=tf.float64))
+        penalty = tf.convert_to_tensor(100.0, dtype=tf.float64)
+        barrier_t = tf.convert_to_tensor(barrier, dtype=tf.float64)
+        offset_t = tf.convert_to_tensor(offset, dtype=tf.float64)
         summed = []
         for x in self.agents:
             weight = x.listen_cost()
-            border = tf.subtract(tf.multiply(steep, tf.log(tf.subtract(barrier_t, speak_sum))), offset_t)
-            summed += [tf.maximum(tf.convert_to_tensor(0.0, dtype=tf.float32), border)]
+            distance_from_barrier = tf.subtract(barrier_t, weight)
+            border = tf.add(tf.multiply(steep, tf.log(distance_from_barrier)), offset_t)
+            over = tf.subtract(weight, barrier_t)
+            border = tf.where(tf.is_nan(border), tf.multiply(over, penalty), border)
+            #border = tf.Print(border, [border]) # Debugging
+            summed += [tf.maximum(tf.convert_to_tensor(0.0, dtype=tf.float64), border)]
         totalc = tf.add_n(summed)
         return totalc
 
@@ -154,17 +169,18 @@ class Organization(object):
     # Yes, I'm saying this is the *more* natural solution.
     def speaking_cost(self, steepness=1.0, barrier=3.0, offset=2.0):
         # This is disgusting looking, but comes out to:
-        #     cost = (-steepness * log(barrier - sum_of_weights)) - offset
+        #     cost = (-steepness * log(barrier - sum_of_weights)) + offset
         # We pin the cost to 0+ so we never get negative costs, then we add
         # costs per agent together and return "total speaking cost for network"
         summed = []
-        steep = tf.neg(tf.convert_to_tensor(steepness, dtype=tf.float32))
-        barrier_t = tf.convert_to_tensor(barrier, dtype=tf.float32)
-        offset_t = tf.convert_to_tensor(offset, dtype=tf.float32)
+        neg = tf.convert_to_tensor(-1.0, dtype=tf.float64)
+        steep = tf.multiply(neg, tf.convert_to_tensor(steepness, dtype=tf.float64))
+        barrier_t = tf.convert_to_tensor(barrier, dtype=tf.float64)
+        offset_t = tf.convert_to_tensor(offset, dtype=tf.float64)
         for x in self.agents:
             speak_sum = tf.reduce_sum(tf.abs(x.out_weights))
-            border = tf.subtract(tf.multiply(steep, tf.log(tf.subtract(barrier_t, speak_sum))), offset_t)
-            summed += [tf.maximum(tf.convert_to_tensor(0.0, dtype=tf.float32), border)]
+            border = tf.add(tf.multiply(steep, tf.log(tf.subtract(barrier_t, speak_sum))), offset_t)
+            summed += [tf.maximum(tf.convert_to_tensor(0.0, dtype=tf.float64), border)]
         totalc = tf.add_n(summed)
         return totalc
 
@@ -189,18 +205,21 @@ class Organization(object):
         loss = differenceSum + cost
         return loss
 
-    # Returns a tensor that yields true if env has three 1s in a row
-    # yields false otherwise
+    # Returns a [batchsize, 1] tensor that yields true if env at that batch
+    # has three 1s in a row, yields false otherwise
     def pattern_detected(self):
         one = tf.convert_to_tensor(1.0, tf.float64)
         true = tf.convert_to_tensor(True, tf.bool)
         false = tf.convert_to_tensor(False, tf.bool)
-        pattern = false
+        pattern = tf.zeros_like(self.environment[:, 0])
         for i in range(0, self.num_environment - 2):
-            val1 = tf.equal(self.environment[i+0, :], one)
-            val2 = tf.equal(self.environment[i+1, :], one)
-            val3 = tf.equal(self.environment[i+2, :], one)
-            p = [tf.logical_and(tf.logical_and(val1, val2), val3)]
+            v1 = self.environment[:, i+0]
+            v2 = self.environment[:, i+1]
+            v3 = self.environment[:, i+2]
+            val1 = tf.equal(v1, one)
+            val2 = tf.equal(v2, one)
+            val3 = tf.equal(v3, one)
+            p = tf.logical_and(tf.logical_and(val1, val2), val3)
             isPattern = tf.equal(p, true)
             pattern = tf.cond(isPattern, lambda: true, lambda: pattern)
         return pattern
