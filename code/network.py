@@ -191,18 +191,23 @@ class Organization(object):
     def loss(self, exponent=2):
         lastLayer = self.num_agents * (self.layers - 1)
         pattern = self.pattern_detected()
+        pattern = tf.Print(pattern, [pattern], message="Pattern: ", summarize=100)
         incorrect = tf.Variable(0.0, dtype=tf.float64)
         zero = tf.convert_to_tensor(0.0, dtype=tf.float64)
         one = tf.convert_to_tensor(1.0, dtype=tf.float64)
         differences = []
+        print "Loss function initialized"
         for a in self.agents[lastLayer+self.num_managers:]:
+            print "Handling agent %d" % a.num
+            a.state = tf.Print(a.state, [a.state], message="Agent State: ", summarize=100)
             match_yes = tf.logical_and(pattern, tf.equal(a.state, 1.0))
             match_no = tf.logical_and(tf.logical_not(pattern), tf.equal(a.state, 0.0))
             match = tf.logical_or(match_yes, match_no)
-            differences += [tf.cond(match, lambda: zero, lambda: one)]
+            differences.append(tf.cond(match, lambda: zero, lambda: one))
         differenceSum = tf.add_n(differences)
         cost = self.listening_cost() + self.speaking_cost()
         loss = differenceSum + cost
+        print "Done running loss function"
         return loss
 
     # Implemented Justin's matrix pattern detection
@@ -216,13 +221,13 @@ class Organization(object):
             A[i:(i+pattern_length), i] = 1
         # We want Y = np.dot(self.environment, A)
         # but Tensorflow doesn't have a dotproduct operatior
-        #Y = tf.matmul(self.environment, tf.reshape(A, [-1, 1]))
         Y = tf.tensordot(self.environment, A, 1)
-        #pattern = np.zeros(shape=(rows, 1))
-        #for i in range(rows):
-            #pattern[i] = tf.reduce_max(Y[i])
-        #pattern = tf.maximum(Y) >= pattern_length
-        pattern = tf.greater_equal(tf.reduce_max(Y), pattern_length)
+        patterns = []
+        for r in range(self.batchsize):
+            rowsum = tf.reduce_max(Y[r])
+            patterns += [tf.greater_equal(rowsum, pattern_length)]
+        pattern = tf.stack(patterns)
+        #pattern = tf.greater_equal(tf.reduce_max(Y), pattern_length)
         return pattern
 
     '''
