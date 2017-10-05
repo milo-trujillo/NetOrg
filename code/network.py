@@ -191,13 +191,13 @@ class Organization(object):
     def loss(self, exponent=2):
         lastLayer = self.num_agents * (self.layers - 1)
         pattern = self.pattern_detected()
-        incorrect = tf.Variable(0.0, dtype=tf.float32)
-        zero = tf.convert_to_tensor(0.0, dtype=tf.float32)
-        one = tf.convert_to_tensor(1.0, dtype=tf.float32)
+        incorrect = tf.Variable(0.0, dtype=tf.float64)
+        zero = tf.convert_to_tensor(0.0, dtype=tf.float64)
+        one = tf.convert_to_tensor(1.0, dtype=tf.float64)
         differences = []
         for a in self.agents[lastLayer+self.num_managers:]:
-            match_yes = tf.logical_and(pattern, tf.equals(a.state, 1.0))
-            match_no = tf.logical_and(tf.logical_not(pattern), tf.equals(a.state, 0.0))
+            match_yes = tf.logical_and(pattern, tf.equal(a.state, 1.0))
+            match_no = tf.logical_and(tf.logical_not(pattern), tf.equal(a.state, 0.0))
             match = tf.logical_or(match_yes, match_no)
             differences += [tf.cond(match, lambda: zero, lambda: one)]
         differenceSum = tf.add_n(differences)
@@ -205,6 +205,27 @@ class Organization(object):
         loss = differenceSum + cost
         return loss
 
+    # Implemented Justin's matrix pattern detection
+    # It's real nifty!
+    def pattern_detected(self):
+        pattern_length = 3
+        rows = self.num_environment
+        cols = self.num_environment - (pattern_length - 1)
+        A = np.zeros(shape=(rows, cols))
+        for i in range(cols):
+            A[i:(i+pattern_length), i] = 1
+        # We want Y = np.dot(self.environment, A)
+        # but Tensorflow doesn't have a dotproduct operatior
+        #Y = tf.matmul(self.environment, tf.reshape(A, [-1, 1]))
+        Y = tf.tensordot(self.environment, A, 1)
+        #pattern = np.zeros(shape=(rows, 1))
+        #for i in range(rows):
+            #pattern[i] = tf.reduce_max(Y[i])
+        #pattern = tf.maximum(Y) >= pattern_length
+        pattern = tf.greater_equal(tf.reduce_max(Y), pattern_length)
+        return pattern
+
+    '''
     # Returns a [batchsize, 1] tensor that yields true if env at that batch
     # has three 1s in a row, yields false otherwise
     def pattern_detected(self):
@@ -223,6 +244,7 @@ class Organization(object):
             isPattern = tf.equal(p, true)
             pattern = tf.cond(isPattern, lambda: true, lambda: pattern)
         return pattern
+    '''
 
     # For helping graph welfare
     def welfareDifference(self, exponent=2):
@@ -233,8 +255,8 @@ class Organization(object):
         one = tf.convert_to_tensor(1.0, dtype=tf.float32)
         differences = []
         for a in self.agents[lastLayer+self.num_managers:]:
-            match_yes = tf.logical_and(pattern, tf.equals(a.state, 1.0))
-            match_no = tf.logical_and(tf.logical_not(pattern), tf.equals(a.state, 0.0))
+            match_yes = tf.logical_and(pattern, tf.equal(a.state, 1.0))
+            match_no = tf.logical_and(tf.logical_not(pattern), tf.equal(a.state, 0.0))
             match = tf.logical_or(match_yes, match_no)
             differences += [tf.cond(match, lambda: zero, lambda: one)]
         differenceSum = tf.add_n(differences)
