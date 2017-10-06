@@ -122,8 +122,8 @@ class Organization(object):
 
             # Let's pin state to either 0 or 1, for "pattern or no"
             state = tf.tanh(tf.matmul(noisyin, a.state_weights))
-            zero = tf.convert_to_tensor(0.0, tf.float64)
-            state = tf.where(tf.greater(state, zero), tf.ones_like(state), tf.zeros_like(state))
+            #zero = tf.convert_to_tensor(0.0, tf.float64)
+            #state = tf.where(tf.greater(state, zero), tf.ones_like(state), tf.zeros_like(state))
 
             a.state = state
             self.states.append(state)
@@ -133,7 +133,7 @@ class Organization(object):
 
             # Similarly, we'll pin our output message to either zero or one
             output = tf.tanh(prenoise + outnoise)
-            output = tf.where(tf.greater(output, zero), tf.ones_like(output), tf.zeros_like(output))
+            #output = tf.where(tf.greater(output, zero), tf.ones_like(output), tf.zeros_like(output))
 
             self.outputs.append(output)
             # output is a vector with dimensions [1, batchsize]
@@ -198,7 +198,8 @@ class Organization(object):
         differences = []
         print "Loss function initialized"
         for a in self.agents[lastLayer+self.num_managers:]:
-            state = tf.reshape(a.state, [-1]) # Flatten array
+            state = tf.where(tf.greater(a.state, zero), tf.ones_like(a.state), tf.zeros_like(a.state))
+            state = tf.reshape(state, [-1]) # Flatten array
             state = tf.Print(state, [state], message="Agent State: ", summarize=100)
             diff = tf.cast(tf.not_equal(state, pattern), tf.float64)
             diff = tf.Print(diff, [diff], message="Diff: ", summarize=100)
@@ -242,7 +243,8 @@ class Organization(object):
         one = tf.convert_to_tensor(1.0, dtype=tf.float64)
         differences = []
         for a in self.agents[lastLayer+self.num_managers:]:
-            state = tf.reshape(a.state, [-1]) # Flatten array
+            state = tf.where(tf.greater(a.state, zero), tf.ones_like(a.state), tf.zeros_like(a.state))
+            state = tf.reshape(state, [-1]) # Flatten array
             diff = tf.cast(tf.not_equal(state, pattern), tf.float64)
             diffCount = tf.reduce_sum(diff)
             differences.append(diffCount)
