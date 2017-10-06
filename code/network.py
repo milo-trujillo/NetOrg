@@ -230,40 +230,22 @@ class Organization(object):
         #pattern = tf.greater_equal(tf.reduce_max(Y), pattern_length)
         return pattern
 
-    '''
-    # Returns a [batchsize, 1] tensor that yields true if env at that batch
-    # has three 1s in a row, yields false otherwise
-    def pattern_detected(self):
-        one = tf.convert_to_tensor(1.0, tf.float64)
-        true = tf.convert_to_tensor(True, tf.bool)
-        false = tf.convert_to_tensor(False, tf.bool)
-        pattern = tf.zeros_like(self.environment[:, 0])
-        for i in range(0, self.num_environment - 2):
-            v1 = self.environment[:, i+0]
-            v2 = self.environment[:, i+1]
-            v3 = self.environment[:, i+2]
-            val1 = tf.equal(v1, one)
-            val2 = tf.equal(v2, one)
-            val3 = tf.equal(v3, one)
-            p = tf.logical_and(tf.logical_and(val1, val2), val3)
-            isPattern = tf.equal(p, true)
-            pattern = tf.cond(isPattern, lambda: true, lambda: pattern)
-        return pattern
-    '''
-
     # For helping graph welfare
+    # This should be exactly the same as 'loss', except without
+    # any communication costs or debugging statements
     def welfareDifference(self, exponent=2):
         lastLayer = self.num_agents * (self.layers - 1)
         pattern = self.pattern_detected()
-        incorrect = tf.Variable(0.0, dtype=tf.float32)
-        zero = tf.convert_to_tensor(0.0, dtype=tf.float32)
-        one = tf.convert_to_tensor(1.0, dtype=tf.float32)
+        pattern = tf.Print(pattern, [pattern], message="Pattern: ", summarize=100)
+        incorrect = tf.Variable(0.0, dtype=tf.float64)
+        zero = tf.convert_to_tensor(0.0, dtype=tf.float64)
+        one = tf.convert_to_tensor(1.0, dtype=tf.float64)
         differences = []
         for a in self.agents[lastLayer+self.num_managers:]:
-            match_yes = tf.logical_and(pattern, tf.equal(a.state, 1.0))
-            match_no = tf.logical_and(tf.logical_not(pattern), tf.equal(a.state, 0.0))
-            match = tf.logical_or(match_yes, match_no)
-            differences += [tf.cond(match, lambda: zero, lambda: one)]
+            state = tf.reshape(a.state, [-1]) # Flatten array
+            diff = tf.cast(tf.not_equal(state, pattern), tf.float64)
+            diffCount = tf.reduce_sum(diff)
+            differences.append(diffCount)
         differenceSum = tf.add_n(differences)
         return differenceSum
 
