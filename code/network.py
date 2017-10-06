@@ -198,12 +198,12 @@ class Organization(object):
         differences = []
         print "Loss function initialized"
         for a in self.agents[lastLayer+self.num_managers:]:
-            print "Handling agent %d" % a.num
-            a.state = tf.Print(a.state, [a.state], message="Agent State: ", summarize=100)
-            match_yes = tf.logical_and(pattern, tf.equal(a.state, 1.0))
-            match_no = tf.logical_and(tf.logical_not(pattern), tf.equal(a.state, 0.0))
-            match = tf.logical_or(match_yes, match_no)
-            differences.append(tf.cond(match, lambda: zero, lambda: one))
+            state = tf.reshape(a.state, [-1]) # Flatten array
+            state = tf.Print(state, [state], message="Agent State: ", summarize=100)
+            diff = tf.cast(tf.not_equal(state, pattern), tf.float64)
+            diff = tf.Print(diff, [diff], message="Diff: ", summarize=100)
+            diffCount = tf.reduce_sum(diff)
+            differences.append(diffCount)
         differenceSum = tf.add_n(differences)
         cost = self.listening_cost() + self.speaking_cost()
         loss = differenceSum + cost
@@ -225,7 +225,7 @@ class Organization(object):
         patterns = []
         for r in range(self.batchsize):
             rowsum = tf.reduce_max(Y[r])
-            patterns += [tf.greater_equal(rowsum, pattern_length)]
+            patterns += [tf.cast(tf.greater_equal(rowsum, pattern_length), tf.float64)]
         pattern = tf.stack(patterns)
         #pattern = tf.greater_equal(tf.reduce_max(Y), pattern_length)
         return pattern
