@@ -84,8 +84,8 @@ class Organization(object):
             created.append(a)
             # First wave
             a.create_in_vec(indim)
-            a.create_state_matrix(indim)
-            a.create_out_matrix(indim)
+            a.create_state_matrix(indim + 1) # Plus one for bias
+            a.create_out_matrix(indim + 1)   # Plus one for bias
             indim += a.fanout
             # There is only one wave in this model
 
@@ -115,13 +115,17 @@ class Organization(object):
             # Add noise inversely-proportional to listening strength
             noisyin = indata + innoise/a.listen_weights
 
+            # And add the bias, which has no noise
+            biasedin = tf.concat([tf.constant(1.0, dtype=tf.float64, shape=[self.batchsize, 1]), noisyin], 1)
+
             # Since listen weights is 1xin we get row wise division.
             if( a.predecessor != None ):
-                noisyin = tf.concat([a.predecessor.received_messages, noisyin], 1)
-            a.set_received_messages(noisyin)
+                biasedin = tf.concat([a.predecessor.received_messages, biasedin], 1)
+
+            a.set_received_messages(biasedin)
 
             # Let's pin state to either 0 or 1, for "pattern or no"
-            state = tf.tanh(tf.matmul(noisyin, a.state_weights))
+            state = tf.tanh(tf.matmul(biasedin, a.state_weights))
             #zero = tf.convert_to_tensor(0.0, tf.float64)
             #state = tf.where(tf.greater(state, zero), tf.ones_like(state), tf.zeros_like(state))
 
@@ -129,7 +133,7 @@ class Organization(object):
             self.states.append(state)
 
             outnoise = tf.random_normal([self.batchsize, a.fanout], stddev=a.noiseoutstd, dtype=tf.float64)
-            prenoise = tf.matmul(noisyin, a.out_weights)
+            prenoise = tf.matmul(biasedin, a.out_weights)
 
             # Similarly, we'll pin our output message to either zero or one
             output = tf.tanh(prenoise + outnoise)
@@ -279,9 +283,9 @@ class Organization(object):
             self.sess.run(self.optimize, feed_dict={self.learning_rate:lr})
 
             if verbose:
-				for a in self.agents[lastLayer+self.num_managers:]:
-					a.listen_weights = tf.Print(a.listen_weights, [a.listen_weights], message="Listen weights: ")
-					a.state_weights = tf.Print(a.state_weights, [a.state_weights], message="State weights: ")
+                for a in self.agents[lastLayer+self.num_managers:]:
+                    a.listen_weights = tf.Print(a.listen_weights, [a.listen_weights], message="Listen weights: ")
+                    a.state_weights = tf.Print(a.state_weights, [a.state_weights], message="State weights: ")
                 #listen_params = self.sess.run([a.listen_weights for a in self.agents])
                 #output_params = self.sess.run([a.out_weights for a in self.agents])
                 #print "Listen_params now set to: " + str(listen_params)
