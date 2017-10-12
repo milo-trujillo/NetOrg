@@ -279,9 +279,12 @@ class Organization(object):
             self.sess.run(self.optimize, feed_dict={self.learning_rate:lr})
 
             if verbose:
-                listen_params = self.sess.run([a.listen_weights for a in self.agents])
-                output_params = self.sess.run([a.out_weights for a in self.agents])
-                print "Listen_params now set to: " + str(listen_params)
+				for a in self.agents[lastLayer+self.num_managers:]:
+					a.listen_weights = tf.Print(a.listen_weights, [a.listen_weights], message="Listen weights: ")
+					a.state_weights = tf.Print(a.state_weights, [a.state_weights], message="State weights: ")
+                #listen_params = self.sess.run([a.listen_weights for a in self.agents])
+                #output_params = self.sess.run([a.out_weights for a in self.agents])
+                #print "Listen_params now set to: " + str(listen_params)
                 #print "Output_params now set to: " + str(output_params)
 
             # Prints the agent's current strategy at each step so we can see how well it's doing
