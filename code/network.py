@@ -283,6 +283,7 @@ class Organization(object):
             self.sess.run(self.optimize, feed_dict={self.learning_rate:lr})
 
             if verbose:
+                lastLayer = self.num_agents * (self.layers - 1)
                 for a in self.agents[lastLayer+self.num_managers:]:
                     a.listen_weights = tf.Print(a.listen_weights, [a.listen_weights], message="Listen weights: ")
                     a.state_weights = tf.Print(a.state_weights, [a.state_weights], message="State weights: ")
