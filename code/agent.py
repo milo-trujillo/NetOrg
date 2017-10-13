@@ -42,7 +42,6 @@ class Agent(object):
         return tf.reduce_sum(tf.abs(self.listen_weights))
 
     def create_state_matrix(self, indim):
-        self.indim = indim
         self.state_weights = tf.get_variable(dtype=tf.float64, name=str(self.num) + "state" +str(self.id), shape=[indim, self.statedim])
 
     def set_predecessor(self, agent):
@@ -52,7 +51,6 @@ class Agent(object):
         self.received_messages = msgs
 
     def create_out_matrix(self, indim):
-        self.indim = indim
         self.out_weights = tf.get_variable(dtype=tf.float64, name=str(self.num) + "out" +str(self.id), shape=[indim, self.fanout])
         '''
         Indim is the number of independent messages we can send. We can send one
