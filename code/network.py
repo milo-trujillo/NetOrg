@@ -230,7 +230,7 @@ class Organization(object):
             yes_pattern = tf.log(tf.subtract(two, x))
             no_pattern = tf.log(tf.add(one, x))
             punishments += [tf.cond(tf.equal(pattern[b], one), lambda: yes_pattern, lambda: no_pattern)]
-        return tf.add_n(tf.stack(punishments))
+        return tf.add_n(punishments)
 
     # Implemented Justin's matrix pattern detection
     # It's real nifty!
