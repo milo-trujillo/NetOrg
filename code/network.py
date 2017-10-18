@@ -135,7 +135,10 @@ class Organization(object):
             # Similarly, we'll pin our output message to either zero or one
             output = tf.sigmoid(prenoise + outnoise)
             threshold = tf.convert_to_tensor(0.5, tf.float64)
-            if( a.num != self.num_agents - 1 ):
+            lastLayer = self.num_agents * (self.layers - 1)
+            #if( a.num != self.num_agents - 1 ):
+            if( a.num not in range(lastLayer + self.num_managers, self.num_agents * self.layers) ):
+                print "Locking output for agent " + str(a.num)
                 output = tf.where(tf.greater(output, threshold), tf.ones_like(output), tf.zeros_like(output))
 
             self.outputs.append(output)
@@ -227,7 +230,7 @@ class Organization(object):
             yes_pattern = tf.log(tf.subtract(two, x))
             no_pattern = tf.log(tf.add(one, x))
             punishments += [tf.cond(tf.equal(pattern[b], one), lambda: yes_pattern, lambda: no_pattern)]
-        return tf.stack(punishments)
+        return tf.add_n(tf.stack(punishments))
 
     # Implemented Justin's matrix pattern detection
     # It's real nifty!
