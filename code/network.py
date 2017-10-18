@@ -124,10 +124,7 @@ class Organization(object):
 
             a.set_received_messages(biasedin)
 
-            # Let's pin state to either 0 or 1, for "pattern or no"
-            state = tf.tanh(tf.matmul(biasedin, a.state_weights))
-            #zero = tf.convert_to_tensor(0.0, tf.float64)
-            #state = tf.where(tf.greater(state, zero), tf.ones_like(state), tf.zeros_like(state))
+            state = tf.sigmoid(tf.matmul(biasedin, a.state_weights))
 
             a.state = state
             self.states.append(state)
@@ -136,8 +133,10 @@ class Organization(object):
             prenoise = tf.matmul(biasedin, a.out_weights)
 
             # Similarly, we'll pin our output message to either zero or one
-            output = tf.tanh(prenoise + outnoise)
-            #output = tf.where(tf.greater(output, zero), tf.ones_like(output), tf.zeros_like(output))
+            output = tf.sigmoid(prenoise + outnoise)
+            threshold = tf.convert_to_tensor(0.5, tf.float64)
+            if( a.num != self.num_agents - 1 ):
+                output = tf.where(tf.greater(output, threshold), tf.ones_like(output), tf.zeros_like(output))
 
             self.outputs.append(output)
             # output is a vector with dimensions [1, batchsize]
@@ -205,15 +204,31 @@ class Organization(object):
             state = tf.where(tf.greater(a.state, zero), tf.ones_like(a.state), tf.zeros_like(a.state))
             state = tf.reshape(state, [-1]) # Flatten array
             state = tf.Print(state, [state], message="Agent State: ", summarize=100)
-            diff = tf.cast(tf.not_equal(state, pattern), tf.float64)
-            diff = tf.Print(diff, [diff], message="Diff: ", summarize=100)
-            diffCount = tf.reduce_sum(diff)
-            differences.append(diffCount)
+            #diff = tf.cast(tf.not_equal(state, pattern), tf.float64)
+            #diff = tf.Print(diff, [diff], message="Diff: ", summarize=100)
+            #diffCount = tf.reduce_sum(diff)
+            #differences.append(diffCount)
+            differences.append(self.agent_punishment(pattern, state))
         differenceSum = tf.add_n(differences)
         cost = self.listening_cost() + self.speaking_cost()
         loss = differenceSum + cost
         print "Done running loss function"
         return loss
+
+    # This is a reward function to be run for each agent
+    # Since we've phrased the problem as minimization
+    # rather than maximization, it's technically a punishment
+    def agent_punishment(self, pattern, state):
+        punishments = []
+        zero = tf.convert_to_tensor(0.0, dtype=tf.float64)
+        one = tf.convert_to_tensor(1.0, dtype=tf.float64)
+        two = tf.convert_to_tensor(2.0, dtype=tf.float64)
+        for b in range(self.batchsize):
+            x = state[b]
+            yes_pattern = tf.log(tf.subtract(two, x))
+            no_pattern = tf.log(tf.add(one, x))
+            punishments += [tf.cond(tf.equal(pattern[b], one), lambda: yes_pattern, lambda: no_pattern)]
+        return tf.stack(punishments)
 
     # Implemented Justin's matrix pattern detection
     # It's real nifty!
