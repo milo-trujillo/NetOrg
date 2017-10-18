@@ -95,7 +95,6 @@ class Organization(object):
         that determine the agents states and outputs that are then
         recursively use to build all other agent's states and outputs
         """
-        self.states = []
         self.outputs = []
         for i, a in enumerate(self.agents):
             envnoise = tf.random_normal([self.batchsize, self.num_environment], stddev=self.envobsnoise, dtype=tf.float64)
@@ -127,7 +126,6 @@ class Organization(object):
             state = tf.sigmoid(tf.matmul(biasedin, a.state_weights))
 
             a.state = state
-            self.states.append(state)
 
             outnoise = tf.random_normal([self.batchsize, a.fanout], stddev=a.noiseoutstd, dtype=tf.float64)
             prenoise = tf.matmul(biasedin, a.out_weights)
