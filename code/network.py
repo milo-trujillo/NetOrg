@@ -201,8 +201,8 @@ class Organization(object):
         differences = []
         print "Loss function initialized"
         for a in self.agents[lastLayer+self.num_managers:]:
-            state = tf.where(tf.greater(a.state, zero), tf.ones_like(a.state), tf.zeros_like(a.state))
-            state = tf.reshape(state, [-1]) # Flatten array
+            #state = tf.where(tf.greater(a.state, zero), tf.ones_like(a.state), tf.zeros_like(a.state))
+            state = tf.reshape(a.state, [-1]) # Flatten array
             state = tf.Print(state, [state], message="Agent State: ", summarize=100)
             #diff = tf.cast(tf.not_equal(state, pattern), tf.float64)
             #diff = tf.Print(diff, [diff], message="Diff: ", summarize=100)
@@ -220,7 +220,6 @@ class Organization(object):
     # rather than maximization, it's technically a punishment
     def agent_punishment(self, pattern, state):
         punishments = []
-        zero = tf.convert_to_tensor(0.0, dtype=tf.float64)
         one = tf.convert_to_tensor(1.0, dtype=tf.float64)
         two = tf.convert_to_tensor(2.0, dtype=tf.float64)
         for b in range(self.batchsize):
