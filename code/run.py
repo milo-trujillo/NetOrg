@@ -91,11 +91,11 @@ def runSim(parameters, iteration, iterations):
     print " * Initializing network 1"
     orgA = network.Organization(optimizer="adadelta", **parameters)
     print " * Training network 1"
-    resA = orgA.train(iterations, iplot=False, verbose=True)
+    resA = orgA.train(iterations, iplot=False, verbose=False)
     print " * Initializing network 2"
     orgB = network.Organization(optimizer="rmsprop", **parameters)
     print " * Training network 2"
-    resB = orgB.train(iterations, iplot=False, verbose=True)
+    resB = orgB.train(iterations, iplot=False, verbose=False)
     if( resA.welfare < resB.welfare ):
         res = resA
     else:
