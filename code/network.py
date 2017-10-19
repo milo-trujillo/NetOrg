@@ -96,6 +96,8 @@ class Organization(object):
         recursively use to build all other agent's states and outputs
         """
         self.outputs = []
+        threshold = tf.convert_to_tensor(0.5, tf.float64)
+        lastLayer = self.num_agents * (self.layers - 1)
         for i, a in enumerate(self.agents):
             envnoise = tf.random_normal([self.batchsize, self.num_environment], stddev=self.envobsnoise, dtype=tf.float64)
             inenv = self.environment
@@ -123,17 +125,16 @@ class Organization(object):
 
             a.set_received_messages(biasedin)
 
-            state = tf.sigmoid(tf.matmul(biasedin, a.state_weights))
-
-            a.state = state
+            # We only care about non-manager states, so don't calculate the others
+            if( a.num in range(lastLayer + self.num_managers, self.num_agents * self.layers) ):
+                state = tf.sigmoid(tf.matmul(biasedin, a.state_weights))
+                a.state = state
 
             outnoise = tf.random_normal([self.batchsize, a.fanout], stddev=a.noiseoutstd, dtype=tf.float64)
             prenoise = tf.matmul(biasedin, a.out_weights)
 
             # Similarly, we'll pin our output message to either zero or one
             output = tf.sigmoid(prenoise + outnoise)
-            threshold = tf.convert_to_tensor(0.5, tf.float64)
-            lastLayer = self.num_agents * (self.layers - 1)
             #if( a.num != self.num_agents - 1 ):
             if( a.num not in range(lastLayer + self.num_managers, self.num_agents * self.layers) ):
                 print "Locking output for agent " + str(a.num)
@@ -195,22 +196,23 @@ class Organization(object):
     def loss(self, exponent=2):
         lastLayer = self.num_agents * (self.layers - 1)
         pattern = self.pattern_detected()
-        pattern = tf.Print(pattern, [pattern], message="Pattern: ", summarize=100)
+        #pattern = tf.Print(pattern, [pattern], message="Pattern: ", summarize=100)
         incorrect = tf.Variable(0.0, dtype=tf.float64)
         zero = tf.convert_to_tensor(0.0, dtype=tf.float64)
         one = tf.convert_to_tensor(1.0, dtype=tf.float64)
+        one_hundred = tf.convert_to_tensor(100.0, dtype=tf.float64)
         differences = []
         print "Loss function initialized"
         for a in self.agents[lastLayer+self.num_managers:]:
             #state = tf.where(tf.greater(a.state, zero), tf.ones_like(a.state), tf.zeros_like(a.state))
             state = tf.reshape(a.state, [-1]) # Flatten array
-            state = tf.Print(state, [state], message="Agent State: ", summarize=100)
+            #state = tf.Print(state, [state], message="Agent State: ", summarize=100)
             #diff = tf.cast(tf.not_equal(state, pattern), tf.float64)
             #diff = tf.Print(diff, [diff], message="Diff: ", summarize=100)
             #diffCount = tf.reduce_sum(diff)
             #differences.append(diffCount)
             differences.append(self.agent_punishment(pattern, state))
-        differenceSum = tf.add_n(differences)
+        differenceSum = tf.multiply(tf.add_n(differences), one_hundred)
         cost = self.listening_cost() + self.speaking_cost()
         loss = differenceSum + cost
         print "Done running loss function"
@@ -256,7 +258,6 @@ class Organization(object):
     def welfareDifference(self, exponent=2):
         lastLayer = self.num_agents * (self.layers - 1)
         pattern = self.pattern_detected()
-        pattern = tf.Print(pattern, [pattern], message="Pattern: ", summarize=100)
         incorrect = tf.Variable(0.0, dtype=tf.float64)
         zero = tf.convert_to_tensor(0.0, dtype=tf.float64)
         one = tf.convert_to_tensor(1.0, dtype=tf.float64)
