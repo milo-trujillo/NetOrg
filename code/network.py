@@ -260,7 +260,7 @@ class Organization(object):
     # For helping graph welfare
     # This should be exactly the same as 'loss', except without
     # any communication costs or debugging statements
-    def welfareDifference 
+    def welfareDifference(self):
         lastLayer = self.num_agents * (self.layers - 1)
         pattern = self.pattern_detected()
         incorrect = tf.Variable(0.0, dtype=tf.float64)
