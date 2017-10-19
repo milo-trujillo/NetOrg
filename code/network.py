@@ -196,25 +196,25 @@ class Organization(object):
     def loss(self, exponent=2):
         lastLayer = self.num_agents * (self.layers - 1)
         pattern = self.pattern_detected()
-        #pattern = tf.Print(pattern, [pattern], message="Pattern: ", summarize=100)
+        pattern = tf.Print(pattern, [pattern], message="Pattern: ", summarize=100)
         incorrect = tf.Variable(0.0, dtype=tf.float64)
         zero = tf.convert_to_tensor(0.0, dtype=tf.float64)
         one = tf.convert_to_tensor(1.0, dtype=tf.float64)
         one_hundred = tf.convert_to_tensor(100.0, dtype=tf.float64)
-        differences = []
+        punishments = []
         print "Loss function initialized"
         for a in self.agents[lastLayer+self.num_managers:]:
             #state = tf.where(tf.greater(a.state, zero), tf.ones_like(a.state), tf.zeros_like(a.state))
             state = tf.reshape(a.state, [-1]) # Flatten array
-            #state = tf.Print(state, [state], message="Agent State: ", summarize=100)
+            state = tf.Print(state, [state], message="Agent State: ", summarize=100)
             #diff = tf.cast(tf.not_equal(state, pattern), tf.float64)
             #diff = tf.Print(diff, [diff], message="Diff: ", summarize=100)
             #diffCount = tf.reduce_sum(diff)
             #differences.append(diffCount)
-            differences.append(self.agent_punishment(pattern, state))
-        differenceSum = tf.multiply(tf.add_n(differences), one_hundred)
+            punishments.append(self.agent_punishment(pattern, state))
+        punishmentSum = tf.multiply(tf.add_n(punishments), one_hundred)
         cost = self.listening_cost() + self.speaking_cost()
-        loss = differenceSum + cost
+        loss = punishmentSum + cost
         print "Done running loss function"
         return loss
 
@@ -223,14 +223,19 @@ class Organization(object):
     # rather than maximization, it's technically a punishment
     def agent_punishment(self, pattern, state):
         punishments = []
+        neg = tf.convert_to_tensor(-1.0, dtype=tf.float64)
         one = tf.convert_to_tensor(1.0, dtype=tf.float64)
         two = tf.convert_to_tensor(2.0, dtype=tf.float64)
-        for b in range(self.batchsize):
-            x = state[b]
-            yes_pattern = tf.log(tf.subtract(two, x))
-            no_pattern = tf.log(tf.add(one, x))
-            punishments += [tf.cond(tf.equal(pattern[b], one), lambda: yes_pattern, lambda: no_pattern)]
-        return tf.add_n(punishments)
+        one_minus_pattern = tf.subtract(one, pattern)
+        two_minus_state = tf.subtract(two, state)
+        one_plus_pattern = tf.add(one, pattern)
+        one_plus_state = tf.add(one, state)
+        yes_pattern = tf.multiply(pattern, tf.log(one_plus_state))
+        yes_pattern = tf.Print(yes_pattern, [yes_pattern], message="Yes Pattern: ", summarize=100)
+        no_pattern = tf.multiply(one_minus_pattern, tf.log(two_minus_state))
+        no_pattern = tf.Print(no_pattern, [no_pattern], message="No Pattern: ", summarize=100)
+        punishment = tf.multiply(neg, tf.add(yes_pattern, no_pattern))
+        return punishment
 
     # Implemented Justin's matrix pattern detection
     # It's real nifty!
@@ -255,21 +260,21 @@ class Organization(object):
     # For helping graph welfare
     # This should be exactly the same as 'loss', except without
     # any communication costs or debugging statements
-    def welfareDifference(self, exponent=2):
+    def welfareDifference 
         lastLayer = self.num_agents * (self.layers - 1)
         pattern = self.pattern_detected()
         incorrect = tf.Variable(0.0, dtype=tf.float64)
         zero = tf.convert_to_tensor(0.0, dtype=tf.float64)
         one = tf.convert_to_tensor(1.0, dtype=tf.float64)
-        differences = []
+        one_hundred = tf.convert_to_tensor(100.0, dtype=tf.float64)
+        punishments = []
         for a in self.agents[lastLayer+self.num_managers:]:
-            state = tf.where(tf.greater(a.state, zero), tf.ones_like(a.state), tf.zeros_like(a.state))
-            state = tf.reshape(state, [-1]) # Flatten array
-            diff = tf.cast(tf.not_equal(state, pattern), tf.float64)
-            diffCount = tf.reduce_sum(diff)
-            differences.append(diffCount)
-        differenceSum = tf.add_n(differences)
-        return differenceSum
+            state = tf.reshape(a.state, [-1]) # Flatten array
+            punishments.append(self.agent_punishment(pattern, state))
+        punishmentSum = tf.multiply(tf.add_n(punishments), one_hundred)
+        cost = self.listening_cost() + self.speaking_cost()
+        loss = punishmentSum
+        return loss
 
     # For helping graph welfare
     def welfareCost(self, exponent=2):
