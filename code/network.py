@@ -196,7 +196,7 @@ class Organization(object):
     def loss(self, exponent=2):
         lastLayer = self.num_agents * (self.layers - 1)
         pattern = self.pattern_detected()
-        pattern = tf.Print(pattern, [pattern], message="Pattern: ", summarize=100)
+        #pattern = tf.Print(pattern, [pattern], message="Pattern: ", summarize=100)
         incorrect = tf.Variable(0.0, dtype=tf.float64)
         zero = tf.convert_to_tensor(0.0, dtype=tf.float64)
         one = tf.convert_to_tensor(1.0, dtype=tf.float64)
@@ -204,13 +204,8 @@ class Organization(object):
         punishments = []
         print "Loss function initialized"
         for a in self.agents[lastLayer+self.num_managers:]:
-            #state = tf.where(tf.greater(a.state, zero), tf.ones_like(a.state), tf.zeros_like(a.state))
             state = tf.reshape(a.state, [-1]) # Flatten array
-            state = tf.Print(state, [state], message="Agent State: ", summarize=100)
-            #diff = tf.cast(tf.not_equal(state, pattern), tf.float64)
-            #diff = tf.Print(diff, [diff], message="Diff: ", summarize=100)
-            #diffCount = tf.reduce_sum(diff)
-            #differences.append(diffCount)
+            #state = tf.Print(state, [state], message="Agent State: ", summarize=100)
             punishments.append(self.agent_punishment(pattern, state))
         punishmentSum = tf.multiply(tf.add_n(punishments), one_hundred)
         cost = self.listening_cost() + self.speaking_cost()
@@ -235,7 +230,7 @@ class Organization(object):
         no_pattern = tf.multiply(one_minus_pattern, tf.log(two_minus_state))
         no_pattern = tf.Print(no_pattern, [no_pattern], message="No Pattern: ", summarize=100)
         punishment = tf.multiply(neg, tf.add(yes_pattern, no_pattern))
-        return punishment
+        return tf.add_n(punishment)
 
     # Implemented Justin's matrix pattern detection
     # It's real nifty!
