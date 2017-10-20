@@ -217,7 +217,6 @@ class Organization(object):
     # Since we've phrased the problem as minimization
     # rather than maximization, it's technically a punishment
     def agent_punishment(self, pattern, state):
-        punishments = []
         neg = tf.convert_to_tensor(-1.0, dtype=tf.float64)
         one = tf.convert_to_tensor(1.0, dtype=tf.float64)
         two = tf.convert_to_tensor(2.0, dtype=tf.float64)
@@ -230,7 +229,7 @@ class Organization(object):
         no_pattern = tf.multiply(one_minus_pattern, tf.log(two_minus_state))
         no_pattern = tf.Print(no_pattern, [no_pattern], message="No Pattern: ", summarize=100)
         punishment = tf.multiply(neg, tf.add(yes_pattern, no_pattern))
-        return tf.add_n(punishment)
+        return tf.reduce_sum(punishment) # This *might* be better after the multiply step in loss()
 
     # Implemented Justin's matrix pattern detection
     # It's real nifty!
