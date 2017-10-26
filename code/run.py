@@ -15,12 +15,12 @@ parameters.append(
     {"innoise" : 2, # Stddev on incomming messages
     "outnoise" : 2, # Stddev on outgoing messages
     "num_environment" : 6, # Num univariate environment nodes
-    "num_agents" : 10, # Number of Agents
-    "num_managers" : 9, # Number of Agents that do not contribute
+    "num_agents" : 1, # Number of Agents
+    "num_managers" : 0, # Number of Agents that do not contribute
     "fanout" : 1, # Distinct messages an agent can say
     "statedim" : 1, # Dimension of Agent State
-    "envnoise": 25, # Stddev of environment state
-    "envobsnoise" : 2, # Stddev on observing environment
+    "envnoise": 25, # Stddev of environment state (NO LONGER USED)
+    "envobsnoise" : 0.0000001, # Stddev on observing environment
     "batchsize" : 1000, # Training Batch Size
     "layers"      : 1, # Number of layers per agent
     "description" : "Baseline"}
@@ -126,14 +126,14 @@ if __name__ == "__main__":
     wellYs = []
 
     #for i in range(len(parameters)):
-    for i in range(40):
+    for i in range(0):
         p = copy.deepcopy(parameters[0])
-        p["num_agents"] += i
+        #p["num_agents"] += i
         filename = "trial%d" % (i+1)
-        #proc = multiprocessing.Process(target=runIterations, args=(p, 3, iterations, filename,))
-        #proc.start()
-        #proc.join()
-        runIterations(p, 3, iterations, filename)
+        proc = multiprocessing.Process(target=runIterations, args=(p, 3, iterations, filename,))
+        proc.start()
+        proc.join()
+        #runIterations(p, 3, iterations, filename)
         res = pickle.load(open(filename + "_res.pickle", "rb"))
         filename = "trial%d_welfare_%f" % (i+1, res.welfare)
         res.graph_cytoscape(filename + ".gml")

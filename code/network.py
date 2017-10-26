@@ -128,17 +128,14 @@ class Organization(object):
             # We only care about non-manager states, so don't calculate the others
             if( a.num in range(lastLayer + self.num_managers, self.num_agents * self.layers) ):
                 state = tf.sigmoid(tf.matmul(biasedin, a.state_weights))
-                a.state = state
+                a.state = tf.Print(state, [state], message="State weight: ", summarize=100)
 
-            outnoise = tf.random_normal([self.batchsize, a.fanout], stddev=a.noiseoutstd, dtype=tf.float64)
+            #outnoise = tf.random_normal([self.batchsize, a.fanout], stddev=a.noiseoutstd, dtype=tf.float64)
             prenoise = tf.matmul(biasedin, a.out_weights)
 
-            # Similarly, we'll pin our output message to either zero or one
-            output = tf.sigmoid(prenoise + outnoise)
-            #if( a.num != self.num_agents - 1 ):
-            if( a.num not in range(lastLayer + self.num_managers, self.num_agents * self.layers) ):
-                print "Locking output for agent " + str(a.num)
-                output = tf.where(tf.greater(output, threshold), tf.ones_like(output), tf.zeros_like(output))
+            # Similarly, we'll pin our output message between zero and one
+            #output = tf.sigmoid(prenoise + outnoise)
+            output = tf.sigmoid(prenoise)
 
             self.outputs.append(output)
             # output is a vector with dimensions [1, batchsize]
@@ -208,7 +205,7 @@ class Organization(object):
             #state = tf.Print(state, [state], message="Agent State: ", summarize=100)
             punishments.append(self.agent_punishment(pattern, state))
         punishmentSum = tf.multiply(tf.add_n(punishments), one_hundred)
-        cost = self.listening_cost() + self.speaking_cost()
+        cost = self.listening_cost() # + self.speaking_cost()
         loss = punishmentSum + cost
         print "Done running loss function"
         return loss
@@ -229,7 +226,7 @@ class Organization(object):
         no_pattern = tf.multiply(one_minus_pattern, tf.log(two_minus_state))
         no_pattern = tf.Print(no_pattern, [no_pattern], message="No Pattern: ", summarize=100)
         punishment = tf.multiply(neg, tf.add(yes_pattern, no_pattern))
-        return tf.reduce_sum(punishment) # This *might* be better after the multiply step in loss()
+        return tf.reduce_sum(punishment)
 
     # Implemented Justin's matrix pattern detection
     # It's real nifty!
