@@ -222,9 +222,9 @@ class Organization(object):
         one_plus_pattern = tf.add(one, pattern)
         one_plus_state = tf.add(one, state)
         yes_pattern = tf.multiply(pattern, tf.log(one_plus_state))
-        yes_pattern = tf.Print(yes_pattern, [yes_pattern], message="Yes Pattern: ", summarize=100)
+        #yes_pattern = tf.Print(yes_pattern, [yes_pattern], message="Yes Pattern: ", summarize=100)
         no_pattern = tf.multiply(one_minus_pattern, tf.log(two_minus_state))
-        no_pattern = tf.Print(no_pattern, [no_pattern], message="No Pattern: ", summarize=100)
+        #no_pattern = tf.Print(no_pattern, [no_pattern], message="No Pattern: ", summarize=100)
         punishment = tf.multiply(neg, tf.add(yes_pattern, no_pattern))
         return tf.reduce_sum(punishment)
 
@@ -325,6 +325,8 @@ class Organization(object):
         welfareCostGen = self.welfareCost()
         welfareDiff = self.sess.run(welfareDiffGen)
         welfareCost = self.sess.run(welfareCostGen)
+        state_weights = self.sess.run(self.agents[-1].state_weights)
+        print "State weights set to: " + str(state_weights)
         if( verbose ):
             print "Listen_params now set to: " + str(listen_params)
         if( self.writer != None ):

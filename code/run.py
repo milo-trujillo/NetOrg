@@ -126,9 +126,8 @@ if __name__ == "__main__":
     wellYs = []
 
     #for i in range(len(parameters)):
-    for i in range(0):
+    for i in range(1):
         p = copy.deepcopy(parameters[0])
-        #p["num_agents"] += i
         filename = "trial%d" % (i+1)
         proc = multiprocessing.Process(target=runIterations, args=(p, 3, iterations, filename,))
         proc.start()
@@ -138,7 +137,8 @@ if __name__ == "__main__":
         filename = "trial%d_welfare_%f" % (i+1, res.welfare)
         res.graph_cytoscape(filename + ".gml")
         res.graph_collapsed_cytoscape(filename + "_collapsed.gml")
-        welfareax.plot(np.log(res.training_res), label=p["description"])
+        welfareax.plot(res.training_res, label=p["description"])
+        #welfareax.plot(np.log(res.training_res), label=p["description"])
         xs += [p["num_agents"]]
         costYs += [res.welfareCost]
         diffYs += [res.welfareDifference]
@@ -146,7 +146,8 @@ if __name__ == "__main__":
     resultsax.plot(xs, diffYs, label="Difference from Optimum")
     welfareax.set_title("Trials")
     welfareax.set_xlabel("Training Epoch")
-    welfareax.set_ylabel("Log(Welfare)")
+    welfareax.set_ylabel("Welfare")
+    #welfareax.set_ylabel("Log(Welfare)")
     welfareax.legend()
     welfarefig.savefig("trials.png")
     resultsax.set_title("Trials")
