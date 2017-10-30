@@ -127,8 +127,8 @@ class Organization(object):
 
             # We only care about non-manager states, so don't calculate the others
             if( a.num in range(lastLayer + self.num_managers, self.num_agents * self.layers) ):
-                state = tf.sigmoid(tf.matmul(biasedin, a.state_weights))
-                a.state = tf.Print(state, [state], message="State weight: ", summarize=100)
+                a.state = tf.sigmoid(tf.matmul(biasedin, a.state_weights))
+                #a.state = tf.Print(state, [state], message="State weight: ", summarize=100)
 
             #outnoise = tf.random_normal([self.batchsize, a.fanout], stddev=a.noiseoutstd, dtype=tf.float64)
             prenoise = tf.matmul(biasedin, a.out_weights)
@@ -197,14 +197,13 @@ class Organization(object):
         incorrect = tf.Variable(0.0, dtype=tf.float64)
         zero = tf.convert_to_tensor(0.0, dtype=tf.float64)
         one = tf.convert_to_tensor(1.0, dtype=tf.float64)
-        one_hundred = tf.convert_to_tensor(100.0, dtype=tf.float64)
         punishments = []
         print "Loss function initialized"
         for a in self.agents[lastLayer+self.num_managers:]:
             state = tf.reshape(a.state, [-1]) # Flatten array
             #state = tf.Print(state, [state], message="Agent State: ", summarize=100)
             punishments.append(self.agent_punishment(pattern, state))
-        punishmentSum = tf.multiply(tf.add_n(punishments), one_hundred)
+        punishmentSum = tf.divide(tf.add_n(punishments), self.batchsize)
         cost = self.listening_cost() # + self.speaking_cost()
         loss = punishmentSum + cost
         print "Done running loss function"
