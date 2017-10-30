@@ -129,7 +129,7 @@ if __name__ == "__main__":
     for i in range(10):
         p = copy.deepcopy(parameters[1])
         p["envobsnoise"] *= (10 ** i)
-        p["description"] = str(envobsnoise)
+        p["description"] = str(p["envobsnoise"])
         filename = "trial%d" % (i+1)
         proc = multiprocessing.Process(target=runIterations, args=(p, 3, iterations, filename,))
         proc.start()
