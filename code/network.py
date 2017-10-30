@@ -214,16 +214,17 @@ class Organization(object):
     # Since we've phrased the problem as minimization
     # rather than maximization, it's technically a punishment
     def agent_punishment(self, pattern, state):
+        eps = tf.convert_to_tensor(0.0001, dtype=tf.float64)
         neg = tf.convert_to_tensor(-1.0, dtype=tf.float64)
         one = tf.convert_to_tensor(1.0, dtype=tf.float64)
-        two = tf.convert_to_tensor(2.0, dtype=tf.float64)
         one_minus_pattern = tf.subtract(one, pattern)
-        two_minus_state = tf.subtract(two, state)
+        one_minus_state = tf.subtract(one, state)
+        one_minus_state_plus_eps = tf.add(eps, one_minus_state)
         one_plus_pattern = tf.add(one, pattern)
-        one_plus_state = tf.add(one, state)
-        yes_pattern = tf.multiply(pattern, tf.log(one_plus_state))
+        eps_plus_state = tf.add(eps, state)
+        yes_pattern = tf.multiply(pattern, tf.log(eps_plus_state))
         #yes_pattern = tf.Print(yes_pattern, [yes_pattern], message="Yes Pattern: ", summarize=100)
-        no_pattern = tf.multiply(one_minus_pattern, tf.log(two_minus_state))
+        no_pattern = tf.multiply(one_minus_pattern, tf.log(one_minus_state_plus_eps))
         #no_pattern = tf.Print(no_pattern, [no_pattern], message="No Pattern: ", summarize=100)
         punishment = tf.multiply(neg, tf.add(yes_pattern, no_pattern))
         return tf.reduce_sum(punishment)
