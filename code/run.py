@@ -115,8 +115,6 @@ if __name__ == "__main__":
     plt.ion()
     welfarefig = plt.figure()
     welfareax = welfarefig.add_subplot(1,1,1)
-    resultsfig = plt.figure()
-    resultsax = resultsfig.add_subplot(1,1,1)
     res = None
     iterations = 3000
 
@@ -126,34 +124,28 @@ if __name__ == "__main__":
     wellYs = []
 
     #for i in range(len(parameters)):
-    for i in range(10):
-        p = copy.deepcopy(parameters[1])
-        p["envobsnoise"] *= (10 ** i)
-        p["description"] = str(p["envobsnoise"])
-        filename = "trial%d" % (i+1)
-        proc = multiprocessing.Process(target=runIterations, args=(p, 3, iterations, filename,))
-        proc.start()
-        proc.join()
-        #runIterations(p, 3, iterations, filename)
-        res = pickle.load(open(filename + "_res.pickle", "rb"))
-        filename = "trial%d_welfare_%f" % (i+1, res.welfare)
-        res.graph_cytoscape(filename + ".gml")
-        res.graph_collapsed_cytoscape(filename + "_collapsed.gml")
-        welfareax.plot(res.training_res, label=p["description"])
-        #welfareax.plot(np.log(res.training_res), label=p["description"])
-        xs += [p["num_agents"]]
-        costYs += [res.welfareCost]
-        diffYs += [res.welfareDifference]
-    resultsax.plot(xs, costYs, label="Communication Cost")
-    resultsax.plot(xs, diffYs, label="Difference from Optimum")
+    i = 0
+    for env in range(16):
+        for noise in range(20):
+            p = copy.deepcopy(parameters[1])
+            p["envobsnoise"] = (0.1 * noise)
+            p["num_environment"] = 5 + env
+            p["description"] = str(p["num_environment"] + "_" + p["envobsnoise"])
+            filename = "trial_%s" % (p["description"])
+            proc = multiprocessing.Process(target=runIterations, args=(p, 3, iterations, filename,))
+            proc.start()
+            proc.join()
+            #runIterations(p, 3, iterations, filename)
+            res = pickle.load(open(filename + "_res.pickle", "rb"))
+            filename = "trial_%s_welfare_%f" % (p["description"], res.welfare)
+            res.graph_cytoscape(filename + ".gml")
+            res.graph_collapsed_cytoscape(filename + "_collapsed.gml")
+            welfareax.plot(res.training_res, label=p["description"])
+            #welfareax.plot(np.log(res.training_res), label=p["description"])
+            i += 1
     welfareax.set_title("Trials")
     welfareax.set_xlabel("Training Epoch")
     welfareax.set_ylabel("Welfare")
     #welfareax.set_ylabel("Log(Welfare)")
     welfareax.legend()
     welfarefig.savefig("trials.png")
-    resultsax.set_title("Trials")
-    resultsax.set_xlabel("Agents")
-    resultsax.set_ylabel("Welfare")
-    resultsax.legend()
-    resultsfig.savefig("trial_results.png")
