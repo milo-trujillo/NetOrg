@@ -27,7 +27,9 @@ class Organization(object):
         self.agents = []
         for i in range(num_agents * self.layers):
             self.agents.append(Agent(innoise, outnoise, i, fanout, statedim, batchsize, num_agents, num_environment))
-        self.environment = tf.random_normal([self.batchsize, num_environment], mean=0.0, stddev=1.0, dtype=tf.float64)
+        #self.environment = tf.random_normal([self.batchsize, num_environment], mean=0.0, stddev=1.0, dtype=tf.float64)
+        # Env now more likely to be zero as env size increases
+        self.environment = tf.random_uniform([self.batchsize, num_environment], minval=-1 * (1.1 ** self.num_environment), maxval=1, dtype=tf.float64)
         zero = tf.convert_to_tensor(0.0, tf.float64)
         greater = tf.greater(self.environment, zero)
         self.environment = tf.where(greater, tf.ones_like(self.environment), tf.zeros_like(self.environment))
