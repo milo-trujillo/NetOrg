@@ -124,25 +124,20 @@ if __name__ == "__main__":
     wellYs = []
 
     #for i in range(len(parameters)):
-    i = 0
     for env in range(16):
-        for noise in range(20):
-            p = copy.deepcopy(parameters[1])
-            p["envobsnoise"] = (0.1 * noise)
-            p["num_environment"] = 5 + env
-            p["description"] = str(p["num_environment"] + "_" + p["envobsnoise"])
-            filename = "trial_%s" % (p["description"])
-            proc = multiprocessing.Process(target=runIterations, args=(p, 3, iterations, filename,))
-            proc.start()
-            proc.join()
-            #runIterations(p, 3, iterations, filename)
-            res = pickle.load(open(filename + "_res.pickle", "rb"))
-            filename = "trial_%s_welfare_%f" % (p["description"], res.welfare)
-            res.graph_cytoscape(filename + ".gml")
-            res.graph_collapsed_cytoscape(filename + "_collapsed.gml")
-            welfareax.plot(res.training_res, label=p["description"])
-            #welfareax.plot(np.log(res.training_res), label=p["description"])
-            i += 1
+		p = copy.deepcopy(parameters[1])
+		p["num_environment"] = 5 + env
+		p["description"] = str(p["num_environment"])
+		filename = "trial_%s" % (p["description"])
+		proc = multiprocessing.Process(target=runIterations, args=(p, 3, iterations, filename,))
+		proc.start()
+		proc.join()
+		#runIterations(p, 3, iterations, filename)
+		res = pickle.load(open(filename + "_res.pickle", "rb"))
+		filename = "trial_%s_welfare_%f" % (p["description"], res.welfare)
+		res.graph_cytoscape(filename + ".gml")
+		res.graph_collapsed_cytoscape(filename + "_collapsed.gml")
+		welfareax.plot(res.training_res, label=p["description"])
     welfareax.set_title("Trials")
     welfareax.set_xlabel("Training Epoch")
     welfareax.set_ylabel("Welfare")
