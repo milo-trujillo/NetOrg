@@ -230,7 +230,7 @@ class Organization(object):
         punishment = tf.multiply(neg, tf.add(yes_pattern, no_pattern))
         return tf.reduce_sum(punishment)
 
-'''
+    '''
     # Implemented Justin's matrix pattern detection
     # It's real nifty!
     def pattern_detected(self):
@@ -250,8 +250,9 @@ class Organization(object):
         pattern = tf.stack(patterns)
         #pattern = tf.greater_equal(tf.reduce_max(Y), pattern_length)
         return pattern
-'''
+    '''
 
+    '''
     # Are more than half the environment nodes set to 1?
     def pattern_detected(self):
         patterns = []
@@ -259,6 +260,21 @@ class Organization(object):
             rowsum = tf.reduce_max(self.environment[r])
             patterns += [tf.cast(tf.greater_equal(rowsum, self.num_environment / 2), tf.float64)]
         return tf.stack(patterns)
+    '''
+
+    # Do the left and right sides of env both have an even/odd number of 1s?
+    def pattern_detected(self):
+        patterns = []
+        for r in range(self.batchsize):
+            left = tf.slice(self.environment[r], [0], [self.num_environment/2])
+            right = tf.slice(self.environment[r], [self.num_environment/2], [self.num_environment])
+            leftsum = tf.reduce_max(left)
+            rightsum = tf.reduce_max(right)
+            lmod = tf.mod(leftsum, 2)
+            rmod = tf.mod(rightsum, 2)
+            patterns += [tf.cast(tf.equal(lmod, rmod), tf.float64)]
+        pattern = tf.stack(patterns)
+        return pattern
 
     # For helping graph welfare
     # This should be exactly the same as 'loss', except without
