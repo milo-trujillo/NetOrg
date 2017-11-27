@@ -20,7 +20,7 @@ parameters.append(
     "fanout" : 1, # Distinct messages an agent can say
     "statedim" : 1, # Dimension of Agent State
     "envnoise": 25, # Stddev of environment state (NO LONGER USED)
-    "envobsnoise" : 0.0000001, # Stddev on observing environment
+    "envobsnoise" : 1, # Stddev on observing environment
     "batchsize" : 1000, # Training Batch Size
     "layers"      : 1, # Number of layers per agent
     "description" : "Baseline"}
@@ -124,20 +124,20 @@ if __name__ == "__main__":
     wellYs = []
 
     #for i in range(len(parameters)):
-    for env in range(16):
-		p = copy.deepcopy(parameters[1])
-		p["num_environment"] = 5 + env
-		p["description"] = str(p["num_environment"])
-		filename = "trial_%s" % (p["description"])
-		proc = multiprocessing.Process(target=runIterations, args=(p, 3, iterations, filename,))
-		proc.start()
-		proc.join()
-		#runIterations(p, 3, iterations, filename)
-		res = pickle.load(open(filename + "_res.pickle", "rb"))
-		filename = "trial_%s_welfare_%f" % (p["description"], res.welfare)
-		res.graph_cytoscape(filename + ".gml")
-		res.graph_collapsed_cytoscape(filename + "_collapsed.gml")
-		welfareax.plot(res.training_res, label=p["description"])
+    for env in range(160):
+        p = copy.deepcopy(parameters[1])
+        p["num_environment"] = 5 + env
+        p["description"] = str(p["num_environment"])
+        filename = "trial_%s" % (p["description"])
+        proc = multiprocessing.Process(target=runIterations, args=(p, 3, iterations, filename,))
+        proc.start()
+        proc.join()
+        #runIterations(p, 3, iterations, filename)
+        res = pickle.load(open(filename + "_res.pickle", "rb"))
+        filename = "trial_%s_welfare_%f" % (p["description"], res.welfare)
+        res.graph_cytoscape(filename + ".gml")
+        res.graph_collapsed_cytoscape(filename + "_collapsed.gml")
+        welfareax.plot(res.training_res, label=p["description"])
     welfareax.set_title("Trials")
     welfareax.set_xlabel("Training Epoch")
     welfareax.set_ylabel("Welfare")

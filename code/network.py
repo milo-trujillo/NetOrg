@@ -27,9 +27,10 @@ class Organization(object):
         self.agents = []
         for i in range(num_agents * self.layers):
             self.agents.append(Agent(innoise, outnoise, i, fanout, statedim, batchsize, num_agents, num_environment))
-        #self.environment = tf.random_normal([self.batchsize, num_environment], mean=0.0, stddev=1.0, dtype=tf.float64)
+        # Env centered on zero w/ 1 std-dev
+        self.environment = tf.random_normal([self.batchsize, num_environment], mean=0.0, stddev=1.0, dtype=tf.float64)
         # Env now more likely to be zero as env size increases
-        self.environment = tf.random_uniform([self.batchsize, num_environment], minval=-1 * (1.1 ** self.num_environment), maxval=1, dtype=tf.float64)
+        #self.environment = tf.random_uniform([self.batchsize, num_environment], minval=-1 * (1.1 ** self.num_environment), maxval=1, dtype=tf.float64)
         zero = tf.convert_to_tensor(0.0, tf.float64)
         greater = tf.greater(self.environment, zero)
         self.environment = tf.where(greater, tf.ones_like(self.environment), tf.zeros_like(self.environment))
@@ -265,15 +266,18 @@ class Organization(object):
     # Do the left and right sides of env both have an even/odd number of 1s?
     def pattern_detected(self):
         patterns = []
-        for r in range(self.batchsize):
-            left = tf.slice(self.environment[r], [0], [self.num_environment/2])
-            right = tf.slice(self.environment[r], [self.num_environment/2], [self.num_environment])
-            leftsum = tf.reduce_max(left)
-            rightsum = tf.reduce_max(right)
-            lmod = tf.mod(leftsum, 2)
-            rmod = tf.mod(rightsum, 2)
-            patterns += [tf.cast(tf.equal(lmod, rmod), tf.float64)]
-        pattern = tf.stack(patterns)
+        midpoint = self.num_environment/2
+        left = tf.slice(self.environment, [0, 0], [self.batchsize, midpoint])
+        right = tf.slice(self.environment, [0, midpoint], [self.batchsize, self.num_environment - midpoint])
+        leftsum = tf.reduce_sum(left, 1)
+        #leftsum = tf.Print(leftsum, [leftsum], message="leftsum: ")
+        rightsum = tf.reduce_sum(right, 1)
+        #rightsum = tf.Print(rightsum, [rightsum], message="rightsum: ")
+        lmod = tf.mod(leftsum, 2)
+        #lmod = tf.Print(lmod, [lmod], message="Lmod: ")
+        rmod = tf.mod(rightsum, 2)
+        #rmod = tf.Print(rmod, [rmod], message="Rmod: ")
+        pattern = tf.cast(tf.equal(lmod, rmod), tf.float64)
         return pattern
 
     # For helping graph welfare
