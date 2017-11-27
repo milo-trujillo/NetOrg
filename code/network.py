@@ -148,6 +148,18 @@ class Organization(object):
                 #res = sess.run(output)
                 #print "Appending output for agent " + str(i) + ": " + str(res)
 
+    # Implemented Wolpert's model for Dunbars number
+    def dunbar_listening_cost(self, dunbar=3):
+        penalties = []
+        for x in self.agents:
+            top_k = tf.nn.top_k(x.listen_weights, k=dunbar+1).values
+            top = tf.log(top_k[0])
+            bottom = tf.log(top_k[dunbar])
+            cost = tf.sigmoid(tf.subtract(top, bottom))
+            penalties += [cost]
+        penalty = tf.stack(penalties)
+        return tf.reduce_prod(penalty)
+
     # Barrier function for listening costs
     def listening_cost(self, steepness=1.0, barrier=3.0, offset=2.0):
         neg = tf.convert_to_tensor(-1.0, dtype=tf.float64)
@@ -207,7 +219,7 @@ class Organization(object):
             #state = tf.Print(state, [state], message="Agent State: ", summarize=100)
             punishments.append(self.agent_punishment(pattern, state))
         punishmentSum = tf.divide(tf.add_n(punishments), self.batchsize)
-        cost = self.listening_cost() # + self.speaking_cost()
+        cost = self.listening_cost() + self.dunbar_listening_cost() # + self.speaking_cost()
         loss = punishmentSum + cost
         print "Done running loss function"
         return loss
