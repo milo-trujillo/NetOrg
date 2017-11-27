@@ -68,7 +68,8 @@ class Results(object):
         for i in range(numenv):
             self.G.add_node(i, color="b", name="E" + str(i), category="environment")
             if( layout ):
-                nx.set_node_attributes(self.G, "graphics", {i: {'x':hspace*i, 'y':0}})
+                self.G[i]["graphics"] = {i: {'x':hspace*i, 'y':0}}
+                #nx.set_node_attributes(self.G, "graphics", {i: {'x':hspace*i, 'y':0}})
         hspace = hspace * numenv / float(self.num_agents)
         hoffset = -1 * (hspace / numenv) # We want to center the nodes above the env
         for aix, agent in enumerate(self.trimmed):
@@ -80,7 +81,8 @@ class Results(object):
             nodex = hoffset + hspace*prefix
             nodey = vspace * (layer + 1)
             if( layout ):
-               	nx.set_node_attributes(self.G, "graphics", {nodenum: {'x':nodex, 'y':nodey}})
+                self.G[nodenum]["graphics"] = {i: {'x':nodex, 'y':nodey}}
+               	#nx.set_node_attributes(self.G, "graphics", {nodenum: {'x':nodex, 'y':nodey}})
             # For each node, weights will be zero if the edge should be ignored
             # and otherwise represent the cost of the edge
             for dest, weight in enumerate(agent.flatten()):
