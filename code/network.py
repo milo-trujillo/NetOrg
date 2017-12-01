@@ -152,13 +152,30 @@ class Organization(object):
     def dunbar_listening_cost(self, dunbar=3):
         penalties = []
         for x in self.agents:
-            top_k = tf.nn.top_k(x.listen_weights, k=dunbar+1).values
+            weights = tf.Print(x.listen_weights, [x.listen_weights], message="Listen weight: ")
+            top_k = tf.transpose(tf.nn.top_k(weights, dunbar+1).values)
+            top_k = tf.Print(top_k, [top_k], message="Top k: ", summarize=100)
             top = tf.log(top_k[0])
             bottom = tf.log(top_k[dunbar])
             cost = tf.sigmoid(tf.subtract(top, bottom))
             penalties += [cost]
         penalty = tf.stack(penalties)
         return tf.reduce_prod(penalty)
+
+    # Justin's model for Dunbar's number
+    def dunbar_listening_barrier(self, dunbar=3, harshness=100, steepness=0.1):
+        penalties = []
+        neg = tf.convert_to_tensor(-1.0, dtype=tf.float64)
+        zero = tf.convert_to_tensor(0, dtype=tf.float64)
+        for x in self.agents:
+            count = tf.reduce_sum(tf.abs(tf.tanh(tf.multiply(harshness, x.listen_weights))))
+            msg = "Agent " + str(x.num) + " has a non-zero count of: "
+            count = tf.Print(count, [count], message=msg)
+            border = tf.multiply(steepness, tf.log(tf.subtract(dunbar, count)))
+            penalties += [border]
+            #penalties += [tf.maximum(zero, border)]
+        penalty = tf.reduce_sum(tf.stack(penalties))
+        return penalty
 
     # Barrier function for listening costs
     def listening_cost(self, steepness=1.0, barrier=3.0, offset=2.0):
