@@ -87,8 +87,7 @@ class Organization(object):
             created.append(a)
             # First wave
             a.create_in_vec(indim)
-            a.create_state_matrix(indim + 1) # Plus one for bias
-            a.create_out_matrix(indim + 1)   # Plus one for bias
+            a.create_out_matrix(indim + 1) # Plus one for bias
             indim += a.fanout
             # There is only one wave in this model
 
@@ -111,42 +110,20 @@ class Organization(object):
             indata = inenv
             for msg in self.outputs:
                 indata = tf.concat([indata, msg], 1)
-            envnoise = envnoise
-            #commnoise = tf.random_normal([self.batchsize, self.num_agents], stddev=a.noiseinstd, dtype=tf.float64)
-            commnoise = tf.random_normal([self.batchsize, a.indim - self.num_environment], stddev=a.noiseinstd, dtype=tf.float64)
-            innoise = tf.concat([envnoise, commnoise], 1)
-
-            # Add noise inversely-proportional to listening strength
-            noisyin = indata + innoise/a.listen_weights
 
             # And add the bias, which has no noise
-            biasedin = tf.concat([tf.constant(1.0, dtype=tf.float64, shape=[self.batchsize, 1]), noisyin], 1)
+            biasedin = tf.concat([tf.constant(1.0, dtype=tf.float64, shape=[self.batchsize, 1]), indata], 1)
 
             # Since listen weights is 1xin we get row wise division.
             if( a.predecessor != None ):
                 biasedin = tf.concat([a.predecessor.received_messages, biasedin], 1)
 
             a.set_received_messages(biasedin)
-
-            # We only care about non-manager states, so don't calculate the others
-            if( a.num in range(lastLayer + self.num_managers, self.num_agents * self.layers) ):
-                a.state = tf.sigmoid(tf.matmul(biasedin, a.state_weights))
-                #a.state = tf.Print(state, [state], message="State weight: ", summarize=100)
-
-            #outnoise = tf.random_normal([self.batchsize, a.fanout], stddev=a.noiseoutstd, dtype=tf.float64)
-            prenoise = tf.matmul(biasedin, a.out_weights)
-
-            # Similarly, we'll pin our output message between zero and one
-            #output = tf.sigmoid(prenoise + outnoise)
-            output = tf.sigmoid(prenoise)
+            output = tf.sigmoid(tf.matmul(biasedin, a.out_weights))
+			a.action = output
 
             self.outputs.append(output)
-            # output is a vector with dimensions [1, batchsize]
-            #with tf.Session() as sess:
-                #init = tf.global_variables_initializer()
-                #sess.run(init)
-                #res = sess.run(output)
-                #print "Appending output for agent " + str(i) + ": " + str(res)
+
 
     # Implemented Wolpert's model for Dunbars number
     def dunbar_listening_cost(self, dunbar=3):
@@ -177,47 +154,6 @@ class Organization(object):
         penalty = tf.reduce_sum(tf.stack(penalties))
         return penalty
 
-    # Barrier function for listening costs
-    def listening_cost(self, steepness=1.0, barrier=3.0, offset=2.0):
-        neg = tf.convert_to_tensor(-1.0, dtype=tf.float64)
-        steep = tf.multiply(neg, tf.convert_to_tensor(steepness, dtype=tf.float64))
-        penalty = tf.convert_to_tensor(100.0, dtype=tf.float64)
-        barrier_t = tf.convert_to_tensor(barrier, dtype=tf.float64)
-        offset_t = tf.convert_to_tensor(offset, dtype=tf.float64)
-        summed = []
-        for x in self.agents:
-            weight = x.listen_cost()
-            distance_from_barrier = tf.subtract(barrier_t, weight)
-            border = tf.add(tf.multiply(steep, tf.log(distance_from_barrier)), offset_t)
-            over = tf.subtract(weight, barrier_t)
-            border = tf.where(tf.is_nan(border), tf.multiply(over, penalty), border)
-            #border = tf.Print(border, [border]) # Debugging
-            summed += [tf.maximum(tf.convert_to_tensor(0.0, dtype=tf.float64), border)]
-        totalc = tf.add_n(summed)
-        return totalc
-
-    # Barrier function for speaking costs
-    # speaking cost == 0 unless someone speaks too much, then shoots to
-    # near infinity. This simulates a hard constraint on speaking
-    # using only soft-constraints, which are more natural in Tensorflow.
-    # Yes, I'm saying this is the *more* natural solution.
-    def speaking_cost(self, steepness=1.0, barrier=3.0, offset=2.0):
-        # This is disgusting looking, but comes out to:
-        #     cost = (-steepness * log(barrier - sum_of_weights)) + offset
-        # We pin the cost to 0+ so we never get negative costs, then we add
-        # costs per agent together and return "total speaking cost for network"
-        summed = []
-        neg = tf.convert_to_tensor(-1.0, dtype=tf.float64)
-        steep = tf.multiply(neg, tf.convert_to_tensor(steepness, dtype=tf.float64))
-        barrier_t = tf.convert_to_tensor(barrier, dtype=tf.float64)
-        offset_t = tf.convert_to_tensor(offset, dtype=tf.float64)
-        for x in self.agents:
-            speak_sum = tf.reduce_sum(tf.abs(x.out_weights))
-            border = tf.add(tf.multiply(steep, tf.log(tf.subtract(barrier_t, speak_sum))), offset_t)
-            summed += [tf.maximum(tf.convert_to_tensor(0.0, dtype=tf.float64), border)]
-        totalc = tf.add_n(summed)
-        return totalc
-
     # We look for a sequence of three 1s from the env in a row
     # If (sequence && agent returned 1) || (!sequence && agent returned 0)
     # then welfare improves. Else welfare worsened.
@@ -232,11 +168,11 @@ class Organization(object):
         punishments = []
         print "Loss function initialized"
         for a in self.agents[lastLayer+self.num_managers:]:
-            state = tf.reshape(a.state, [-1]) # Flatten array
+            state = tf.reshape(a.action, [-1]) # Flatten array
             #state = tf.Print(state, [state], message="Agent State: ", summarize=100)
             punishments.append(self.agent_punishment(pattern, state))
         punishmentSum = tf.divide(tf.add_n(punishments), self.batchsize)
-        cost = self.listening_cost() + self.dunbar_listening_cost() # + self.speaking_cost()
+        cost = self.dunbar_listening_cost()
         loss = punishmentSum + cost
         print "Done running loss function"
         return loss
@@ -318,19 +254,17 @@ class Organization(object):
         incorrect = tf.Variable(0.0, dtype=tf.float64)
         zero = tf.convert_to_tensor(0.0, dtype=tf.float64)
         one = tf.convert_to_tensor(1.0, dtype=tf.float64)
-        one_hundred = tf.convert_to_tensor(100.0, dtype=tf.float64)
         punishments = []
         for a in self.agents[lastLayer+self.num_managers:]:
-            state = tf.reshape(a.state, [-1]) # Flatten array
+            state = tf.reshape(a.action, [-1]) # Flatten array
             punishments.append(self.agent_punishment(pattern, state))
-        punishmentSum = tf.multiply(tf.add_n(punishments), one_hundred)
-        cost = self.listening_cost() + self.speaking_cost()
+        punishmentSum = tf.divide(tf.add_n(punishments), self.batchsize)
         loss = punishmentSum
         return loss
 
     # For helping graph welfare
     def welfareCost(self, exponent=2):
-        return self.listening_cost() + self.speaking_cost()
+        return self.dunbar_listening_cost()
 
     def train(self, niters, lrinit=None, iplot=False, verbose=False):
         if( lrinit == None ):
@@ -359,7 +293,6 @@ class Organization(object):
                 lastLayer = self.num_agents * (self.layers - 1)
                 for a in self.agents[lastLayer+self.num_managers:]:
                     a.listen_weights = tf.Print(a.listen_weights, [a.listen_weights], message="Listen weights: ")
-                    a.state_weights = tf.Print(a.state_weights, [a.state_weights], message="State weights: ")
                 #listen_params = self.sess.run([a.listen_weights for a in self.agents])
                 #output_params = self.sess.run([a.out_weights for a in self.agents])
                 #print "Listen_params now set to: " + str(listen_params)
@@ -386,8 +319,6 @@ class Organization(object):
         welfareCostGen = self.welfareCost()
         welfareDiff = self.sess.run(welfareDiffGen)
         welfareCost = self.sess.run(welfareCostGen)
-        state_weights = self.sess.run(self.agents[-1].state_weights)
-        print "State weights set to: " + str(state_weights)
         if( verbose ):
             print "Listen_params now set to: " + str(listen_params)
         if( self.writer != None ):

@@ -41,9 +41,6 @@ class Agent(object):
     def listen_cost(self):
         return tf.reduce_sum(tf.abs(self.listen_weights))
 
-    def create_state_matrix(self, indim):
-        self.state_weights = tf.get_variable(dtype=tf.float64, name=str(self.num) + "state" +str(self.id), shape=[indim, self.statedim])
-
     def set_predecessor(self, agent):
         self.predecessor = agent
 
