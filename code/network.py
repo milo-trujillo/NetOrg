@@ -86,7 +86,7 @@ class Organization(object):
         for i, a in enumerate(self.agents):
             created.append(a)
             # First wave
-            a.create_in_vec(indim)
+            #a.create_in_vec(indim)
             a.create_out_matrix(indim + 1) # Plus one for bias
             indim += a.fanout
             # There is only one wave in this model
@@ -120,24 +120,41 @@ class Organization(object):
 
             a.set_received_messages(biasedin)
             output = tf.sigmoid(tf.matmul(biasedin, a.out_weights))
-			a.action = output
+            a.action = output
 
             self.outputs.append(output)
 
 
     # Implemented Wolpert's model for Dunbars number
-    def dunbar_listening_cost(self, dunbar=3):
+    def dunbar_listening_cost(self, dunbar=2):
         penalties = []
+        ten = tf.convert_to_tensor(10.0, dtype=tf.float64)
+        five = tf.convert_to_tensor(5.0, dtype=tf.float64)
+        print("Dunbar: " + str(dunbar))
         for x in self.agents:
-            weights = tf.Print(x.listen_weights, [x.listen_weights], message="Listen weight: ")
-            top_k = tf.transpose(tf.nn.top_k(weights, dunbar+1).values)
-            top_k = tf.Print(top_k, [top_k], message="Top k: ", summarize=100)
-            top = tf.log(top_k[0])
-            bottom = tf.log(top_k[dunbar])
-            cost = tf.sigmoid(tf.subtract(top, bottom))
+            weights = tf.abs(x.out_weights)
+            #weights = tf.Print(weights, [weights], message="Listen weight: ")
+            # We only need to transpose for listen weights, not speaking weights
+            #top_k = tf.transpose(tf.nn.top_k(weights, dunbar+1).values)
+            top_k = tf.transpose(tf.nn.top_k(tf.transpose(weights), dunbar+1).values)
+            #top_k = tf.Print(top_k, [top_k], message="Top k: ", summarize=100)
+            #top = tf.log(top_k[0])
+            #bottom = tf.log(top_k[dunbar])
+            top = top_k[0]
+            #top = tf.Print(top, [top], message="Top: ")
+            bottom = top_k[dunbar]
+            #bottom = tf.Print(bottom, [bottom], message="Bottom: ")
+            #cost = tf.square(tf.multiply(tf.sigmoid(tf.subtract(top, bottom)), five))
+            #diff = tf.divide(tf.subtract(top, bottom), top)
+            cost = tf.divide(bottom, top)
+            #cost = tf.exp(tf.sigmoid(tf.multiply(ten, tf.subtract(diff, 0.5))))
+            #cost = tf.Print(cost, [cost], message="Wolpert Cost: ")
             penalties += [cost]
         penalty = tf.stack(penalties)
-        return tf.reduce_prod(penalty)
+        #penalty = tf.Print(penalty, [penalty], message="Wolpert Penalty: ")
+        #return tf.multiply(tf.convert_to_tensor(100.0, dtype=tf.float64), tf.reduce_sum(penalty))
+        return tf.multiply(tf.sigmoid(tf.reduce_sum(penalty)), ten)
+        #return tf.square(tf.multiply(five, tf.reduce_sum(penalty)))
 
     # Justin's model for Dunbar's number
     def dunbar_listening_barrier(self, dunbar=3, harshness=100, steepness=0.1):
@@ -145,7 +162,7 @@ class Organization(object):
         neg = tf.convert_to_tensor(-1.0, dtype=tf.float64)
         zero = tf.convert_to_tensor(0, dtype=tf.float64)
         for x in self.agents:
-            count = tf.reduce_sum(tf.abs(tf.tanh(tf.multiply(harshness, x.listen_weights))))
+            count = tf.reduce_sum(tf.abs(tf.tanh(tf.multiply(harshness, x.out_weights))))
             msg = "Agent " + str(x.num) + " has a non-zero count of: "
             count = tf.Print(count, [count], message=msg)
             border = tf.multiply(steepness, tf.log(tf.subtract(dunbar, count)))
@@ -153,6 +170,12 @@ class Organization(object):
             #penalties += [tf.maximum(zero, border)]
         penalty = tf.reduce_sum(tf.stack(penalties))
         return penalty
+
+    def sum_listening_weights(self):
+        weights = []
+        for x in self.agents:
+            weights += [tf.reduce_sum(tf.abs(x.listen_weights))]
+        return tf.add_n(weights)
 
     # We look for a sequence of three 1s from the env in a row
     # If (sequence && agent returned 1) || (!sequence && agent returned 0)
@@ -172,8 +195,12 @@ class Organization(object):
             #state = tf.Print(state, [state], message="Agent State: ", summarize=100)
             punishments.append(self.agent_punishment(pattern, state))
         punishmentSum = tf.divide(tf.add_n(punishments), self.batchsize)
+        #punishmentSum = tf.Print(punishmentSum, [punishmentSum], message="punishmentSum: ")
+        #cost = self.sum_listening_weights() + self.dunbar_listening_cost()
         cost = self.dunbar_listening_cost()
+        #cost = tf.Print(cost, [cost], message="cost: ")
         loss = punishmentSum + cost
+        #loss = tf.Print(loss, [loss], message="Welfare: ")
         print "Done running loss function"
         return loss
 
@@ -313,7 +340,7 @@ class Organization(object):
                 fig.canvas.draw()
 
         # Get the strategy from all agents, which is the "network configuration" at the end
-        listen_params = self.sess.run([a.listen_weights for a in self.agents])
+        out_params = self.sess.run([a.out_weights for a in self.agents])
         welfare = self.sess.run(self.objective)
         welfareDiffGen = self.welfareDifference()
         welfareCostGen = self.welfareCost()
@@ -323,5 +350,5 @@ class Organization(object):
             print "Listen_params now set to: " + str(listen_params)
         if( self.writer != None ):
             self.writer.close()
-        return Results(training_res, listen_params, self.num_agents, self.num_environment, welfare, welfareDiff, welfareCost)
+        return Results(training_res, out_params, self.num_agents, self.num_environment, welfare, welfareDiff, welfareCost)
     
