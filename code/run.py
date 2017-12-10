@@ -116,7 +116,7 @@ if __name__ == "__main__":
     welfarefig = plt.figure()
     welfareax = welfarefig.add_subplot(1,1,1)
     res = None
-    iterations = 3000
+    iterations = 30000
 
     xs = []
     costYs = []
@@ -124,12 +124,13 @@ if __name__ == "__main__":
     wellYs = []
 
     #for i in range(len(parameters)):
-    for env in range(160):
+    #for env in range(160):
+    for env in range(1):
         p = copy.deepcopy(parameters[1])
         p["num_environment"] = 5 + env
         p["description"] = str(p["num_environment"])
         filename = "trial_%s" % (p["description"])
-        proc = multiprocessing.Process(target=runIterations, args=(p, 3, iterations, filename,))
+        proc = multiprocessing.Process(target=runIterations, args=(p, 1, iterations, filename,))
         proc.start()
         proc.join()
         #runIterations(p, 3, iterations, filename)
