@@ -12,6 +12,12 @@ plt.ion()
 
 from results import Results
 
+'''
+    This file describes how an organization will work, and contains
+    all the neural-networky bits. All the interactions between agents,
+    calculations of welfare, and network optimization occur below
+'''
+
 class Organization(object):
     def __init__(self, num_environment, num_agents, num_managers, innoise,
                      outnoise, fanout, statedim, envnoise, envobsnoise,
@@ -38,7 +44,9 @@ class Organization(object):
         self.objective = self.loss()
         self.learning_rate = tf.placeholder(tf.float64)
 
-        # Justin used the "AdadeltaOptimizer"
+        # Justin used the "AdadeltaOptimizer" originally
+        # I've experimented with all of the below, but have only gotten
+        # useful results out of adadelta and rmsprop
         optimizers = {
             "momentum":         tf.train.MomentumOptimizer(self.learning_rate, momentum=0.5).minimize(self.objective),
             "adadelta":         tf.train.AdadeltaOptimizer(self.learning_rate, rho=.9).minimize(self.objective),
@@ -80,23 +88,20 @@ class Organization(object):
         self.build_agent_params()
         self.build_wave()
 
+    # This initializes all of the agents.
+    # In a multi-layer network it would also tie
+    # the observations of each agent to those of its predecessor
     def build_agent_params(self):
         created = []
         indim = self.num_environment
         for i, a in enumerate(self.agents):
             created.append(a)
-            # First wave
-            #a.create_in_vec(indim)
             a.create_out_matrix(indim + 1) # Plus one for bias
             indim += a.fanout
-            # There is only one wave in this model
 
+    # This sets up the interactions between agents, the env, and
+    # resulting messages. This is the heart of the network.
     def build_wave(self):
-        """
-        This loops through agents building the tensorflow objects
-        that determine the agents states and outputs that are then
-        recursively use to build all other agent's states and outputs
-        """
         self.outputs = []
         threshold = tf.convert_to_tensor(0.5, tf.float64)
         lastLayer = self.num_agents * (self.layers - 1)
@@ -104,14 +109,12 @@ class Organization(object):
             envnoise = tf.random_normal([self.batchsize, self.num_environment], stddev=self.envobsnoise, dtype=tf.float64)
             inenv = self.environment
 
-            incomm = None
-
-            # First wave
+            # indata = env + messages from previous agents
             indata = inenv
             for msg in self.outputs:
                 indata = tf.concat([indata, msg], 1)
 
-            # And add the bias, which has no noise
+            # And add the bias, which is always a reliable '1'
             biasedin = tf.concat([tf.constant(1.0, dtype=tf.float64, shape=[self.batchsize, 1]), indata], 1)
 
             # Since listen weights is 1xin we get row wise division.
@@ -121,11 +124,13 @@ class Organization(object):
             a.set_received_messages(biasedin)
             output = tf.sigmoid(tf.matmul(biasedin, a.out_weights))
             a.action = output
-
             self.outputs.append(output)
 
 
     # Implemented Wolpert's model for Dunbars number
+    # This involves looking at the biggest value, and the (dunbar+1) biggest value,
+    # and basing punishment on the ratio between the two numbers, such that there
+    # is an incentive the make the (dunbar+1)th largest value very small.
     def dunbar_listening_cost(self, dunbar=2):
         penalties = []
         ten = tf.convert_to_tensor(10.0, dtype=tf.float64)
@@ -145,6 +150,10 @@ class Organization(object):
         return tf.multiply(tf.sigmoid(tf.reduce_sum(penalty)), ten)
 
     # Justin's model for Dunbar's number
+    # This approach involves using a hyperbolic tangent of hyperbolic tangents
+    # to count how many non-zero edges there are, and assign punishment if we
+    # go over Dunbar's number. Punishment is based on total of all edges except
+    # the top (dunbar) which we are allowed to have.
     def dunbar_listening_barrier(self, dunbar=3, harshness=100, steepness=0.1):
         penalties = []
         neg = tf.convert_to_tensor(-1.0, dtype=tf.float64)
@@ -164,15 +173,9 @@ class Organization(object):
         penalty = tf.reduce_sum(tf.stack(penalties))
         return penalty
 
-    def sum_listening_weights(self):
-        weights = []
-        for x in self.agents:
-            weights += [tf.reduce_sum(tf.abs(x.listen_weights))]
-        return tf.add_n(weights)
-
-    # We look for a sequence of three 1s from the env in a row
+    # We look for a pattern, defined in the pattern_detected() function
     # If (sequence && agent returned 1) || (!sequence && agent returned 0)
-    # then welfare improves. Else welfare worsened.
+    # then welfare improves. Else welfare worsens.
     # Note: We only look at non middle-managers for accuracy, but all for costs
     def loss(self, exponent=2):
         lastLayer = self.num_agents * (self.layers - 1)
@@ -189,7 +192,6 @@ class Organization(object):
             punishments.append(self.agent_punishment(pattern, state))
         punishmentSum = tf.divide(tf.add_n(punishments), self.batchsize)
         #punishmentSum = tf.Print(punishmentSum, [punishmentSum], message="punishmentSum: ")
-        #cost = self.sum_listening_weights() + self.dunbar_listening_cost()
         #cost = self.dunbar_listening_cost() # Wolpert's approach
         cost = self.dunbar_listening_barrier() # Justin's approach
         #cost = tf.Print(cost, [cost], message="cost: ")
@@ -218,7 +220,8 @@ class Organization(object):
         return tf.reduce_sum(punishment)
 
     '''
-    # Implemented Justin's matrix pattern detection
+    # Implemented Justin's matrix pattern detection,
+    # which looks for three 1s in a row.
     # It's real nifty!
     def pattern_detected(self):
         pattern_length = 3
@@ -287,6 +290,7 @@ class Organization(object):
     def welfareCost(self, exponent=2):
         return self.dunbar_listening_cost()
 
+    # This is the code responsible for running the optimizer and returning results
     def train(self, niters, lrinit=None, iplot=False, verbose=False):
         if( lrinit == None ):
             lrinit = self.start_learning_rate
@@ -314,14 +318,6 @@ class Organization(object):
                 lastLayer = self.num_agents * (self.layers - 1)
                 for a in self.agents[lastLayer+self.num_managers:]:
                     a.listen_weights = tf.Print(a.listen_weights, [a.listen_weights], message="Listen weights: ")
-                #listen_params = self.sess.run([a.listen_weights for a in self.agents])
-                #output_params = self.sess.run([a.out_weights for a in self.agents])
-                #print "Listen_params now set to: " + str(listen_params)
-                #print "Output_params now set to: " + str(output_params)
-
-            # Prints the agent's current strategy at each step so we can see how well it's doing
-            #strat = self.sess.run(self.agents[0].listen_weights)
-            #print(strat)
 
             # Evaluates our current progress towards objective
             u = self.sess.run(self.objective)

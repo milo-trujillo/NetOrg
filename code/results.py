@@ -7,7 +7,16 @@ import networkx as nx
 import re
 plt.ion()
 
+'''
+    This file is responsible for going from the ending state of a simulation
+    to something we can view as a human-readable graph.
+
+    It also contains a lot of graph analysis code, for detecting hierarchy and
+    centrality levels within an organization.
+'''
+
 class Results(object):
+    # Feed in final network state from network.py
     def __init__(self, training_res, listen_params, num_agents, num_env, welfare, difference, cost):
         self.training_res = training_res
         self.listen_params = listen_params
@@ -21,11 +30,18 @@ class Results(object):
         self.G = None
         self.CG = None
 
+    # Recalculate everything if we've been loaded from a pickle
+    # and have updated parameters
     def reset(self):
         self.get_trimmed_listen_params()
         self.graph_org()
         self.graph_collapsed_org()
 
+    # Remove edges smaller than an arbitrary threshold.
+    # In this case we look at how far away each value is from
+    # the largest edge per node, and remove the tiny ones
+    # This needs to be carefully calibrated, but makes the graph
+    # much easier to interpret
     #def get_trimmed_listen_params(self, cutoff=.05):
     def get_trimmed_listen_params(self, cutoff=.00):
         self.trimmed = []
@@ -34,6 +50,9 @@ class Results(object):
             lparams = lparams * np.int_(lparams * lparams>(cutoff*maxp))
             self.trimmed.append(lparams)
 
+    # This is Justin's original graphing code (more or less)
+    # It is intended for rendering networks as PNGs directly in NetworkX,
+    # which I haven't been doing.
     def generate_graph(self, vspace=1, hspace=2):
         numenv = len(self.trimmed[0].flatten())
         numnodes = numenv + len(self.trimmed)
@@ -63,13 +82,18 @@ class Results(object):
             G.node[nodenum]["pos"] = (hpos, vpos)
         return G
 
+    # This function prepares the graph in a metadata format
+    # Cytoscape and Gephi can import, with encoded positional data
+    # for each agent and env node
     def graph_org(self, vspace=200, hspace=200, layout=True):
         numenv = len(self.trimmed[0].flatten())
         self.G = nx.DiGraph()
+        # First we'll draw all the env nodes in blue on the top row
         for i in range(numenv):
             self.G.add_node(i, color="b", name="E" + str(i), category="environment")
             if( layout ):
                 nx.set_node_attributes(self.G, name="graphics", values={i: {'x':hspace*i, 'y':0}})
+        # Now we'll place all the agents, with a row per "layer" or "timestep"
         hspace = hspace * numenv / float(self.num_agents)
         hoffset = -1 * (hspace / numenv) # We want to center the nodes above the env
         for aix, agent in enumerate(self.trimmed):
@@ -98,6 +122,9 @@ class Results(object):
                 predecessor = int(numenv + aix - self.num_agents)
                 self.G.add_edge(predecessor, nodenum, width=0, weight=0)
 
+    # In a collapsed org we flatten all timesteps, so you can see
+    # "these are all the things agent 1 listens to, at every timestep,
+    # to make its decisions"
     def graph_collapsed_org(self):
         numenv = len(self.trimmed[0].flatten())
         self.CG = nx.DiGraph()
@@ -123,12 +150,12 @@ class Results(object):
     def patch_gml(self, filename):
         with open(filename, "r+") as f:
             content = f.read()
-            #newcontent = re.sub("label (\S+)", r'label "\1"', content)
             newcontent = re.sub("label (\S+)\s+", r'', content)
             f.seek(0, 0)
             f.truncate()
             f.write(newcontent)
 
+    # Graph in a format Cytoscape (and Gephi) understand
     def graph_cytoscape(self, filename):
         if( self.G == None ):
             self.graph_org()
@@ -136,6 +163,7 @@ class Results(object):
         nx.write_gml(self.G, filename)
         self.patch_gml(filename)
 
+    # Same as graph_cytoscape, with a timestep-collapsed org
     def graph_collapsed_cytoscape(self, filename):
         if( self.CG == None ):
             self.graph_collapsed_org()
