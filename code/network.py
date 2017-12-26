@@ -133,41 +133,34 @@ class Organization(object):
         print("Dunbar: " + str(dunbar))
         for x in self.agents:
             weights = tf.abs(x.out_weights)
-            #weights = tf.Print(weights, [weights], message="Listen weight: ")
-            # We only need to transpose for listen weights, not speaking weights
-            #top_k = tf.transpose(tf.nn.top_k(weights, dunbar+1).values)
             top_k = tf.transpose(tf.nn.top_k(tf.transpose(weights), dunbar+1).values)
-            #top_k = tf.Print(top_k, [top_k], message="Top k: ", summarize=100)
-            #top = tf.log(top_k[0])
-            #bottom = tf.log(top_k[dunbar])
             top = top_k[0]
             #top = tf.Print(top, [top], message="Top: ")
             bottom = top_k[dunbar]
             #bottom = tf.Print(bottom, [bottom], message="Bottom: ")
-            #cost = tf.square(tf.multiply(tf.sigmoid(tf.subtract(top, bottom)), five))
-            #diff = tf.divide(tf.subtract(top, bottom), top)
-            cost = tf.divide(bottom, top)
-            #cost = tf.exp(tf.sigmoid(tf.multiply(ten, tf.subtract(diff, 0.5))))
-            #cost = tf.Print(cost, [cost], message="Wolpert Cost: ")
+            #cost = tf.divide(bottom, top)
+            cost = tf.divide(tf.sigmoid(bottom), tf.sigmoid(top)) # At Wolpert's suggestion
             penalties += [cost]
         penalty = tf.stack(penalties)
-        #penalty = tf.Print(penalty, [penalty], message="Wolpert Penalty: ")
-        #return tf.multiply(tf.convert_to_tensor(100.0, dtype=tf.float64), tf.reduce_sum(penalty))
         return tf.multiply(tf.sigmoid(tf.reduce_sum(penalty)), ten)
-        #return tf.square(tf.multiply(five, tf.reduce_sum(penalty)))
 
     # Justin's model for Dunbar's number
     def dunbar_listening_barrier(self, dunbar=3, harshness=100, steepness=0.1):
         penalties = []
         neg = tf.convert_to_tensor(-1.0, dtype=tf.float64)
         zero = tf.convert_to_tensor(0, dtype=tf.float64)
+        harshness = tf.convert_to_tensor(harshness, dtype=tf.float64)
         for x in self.agents:
-            count = tf.reduce_sum(tf.abs(tf.tanh(tf.multiply(harshness, x.out_weights))))
+            weights = tf.abs(x.out_weights)
+            count = tf.reduce_sum(tf.abs(tf.tanh(tf.multiply(harshness,weights))))
+            top_k = tf.transpose(tf.nn.top_k(tf.transpose(weights), dunbar+1).values)
+            #punishment = tf.squeeze(tf.multiply(top_k[dunbar], harshness))
+            punishment = tf.squeeze(tf.multiply(tf.reduce_sum(top_k[dunbar:]), harshness))
             msg = "Agent " + str(x.num) + " has a non-zero count of: "
-            count = tf.Print(count, [count], message=msg)
-            border = tf.multiply(steepness, tf.log(tf.subtract(dunbar, count)))
-            penalties += [border]
-            #penalties += [tf.maximum(zero, border)]
+            #count = tf.Print(count, [count], message=msg)
+            over = tf.greater(tf.subtract(count, dunbar), zero)
+            penalty = tf.cond(over, lambda: punishment, lambda: zero)
+            penalties += [penalty]
         penalty = tf.reduce_sum(tf.stack(penalties))
         return penalty
 
@@ -197,7 +190,8 @@ class Organization(object):
         punishmentSum = tf.divide(tf.add_n(punishments), self.batchsize)
         #punishmentSum = tf.Print(punishmentSum, [punishmentSum], message="punishmentSum: ")
         #cost = self.sum_listening_weights() + self.dunbar_listening_cost()
-        cost = self.dunbar_listening_cost()
+        #cost = self.dunbar_listening_cost() # Wolpert's approach
+        cost = self.dunbar_listening_barrier() # Justin's approach
         #cost = tf.Print(cost, [cost], message="cost: ")
         loss = punishmentSum + cost
         #loss = tf.Print(loss, [loss], message="Welfare: ")
